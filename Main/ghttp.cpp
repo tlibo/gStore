@@ -858,6 +858,7 @@ int initialize(int argc, char *argv[])
 		 cout << "Use the default port:9000!" << endl;
 		 cout << "Not load any database!" << endl;
 		 server.config.port = 9000;
+		 port = server.config.port;
 		 db_name = "";
 		 loadCSR = 0;
 		 whiteList = 0;
