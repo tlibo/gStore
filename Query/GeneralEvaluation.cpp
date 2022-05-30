@@ -1330,7 +1330,14 @@ void GeneralEvaluation::getFinalResult(ResultSet &ret_result)
 					if (!proj[0].path_args.pred_set.empty())
 					{
 						for (auto pred : proj[0].path_args.pred_set)
-							pred_id_set.push_back(kvstore->getIDByPredicate(pred));
+						{
+							TYPE_PREDICATE_ID pred_id = kvstore->getIDByPredicate(pred);
+							// cout << "pred_set id:" << pred_id << endl;
+							if (pred_id != INVALID)
+							{
+								pred_id_set.push_back(pred_id);
+							}
+						}
 					}
 					else
 					{
@@ -1494,6 +1501,7 @@ void GeneralEvaluation::getFinalResult(ResultSet &ret_result)
 							break;
 					}
 					ss << "]}\"";
+					cout << "paths length:" << uid_ls.size() * vid_ls.size() << endl;
 					if (proj[0].aggregate_type == QueryTree::ProjectionVar::cycleBoolean_type)
 					{
 						if (exist)
@@ -1502,7 +1510,9 @@ void GeneralEvaluation::getFinalResult(ResultSet &ret_result)
 							new_result0.result.back().str[proj2new[0] - new_result0_id_cols] = "\"false\"^^<http://www.w3.org/2001/XMLSchema#boolean>";
 					}
 					else
-						ss >> new_result0.result.back().str[proj2new[0] - new_result0_id_cols];
+					{
+						new_result0.result.back().str[proj2new[0] - new_result0_id_cols] = ss.str();
+					}	
 				}
 				else
 				{
@@ -2273,7 +2283,14 @@ void GeneralEvaluation::getFinalResult(ResultSet &ret_result)
 						if (!proj[i].path_args.pred_set.empty())
 						{
 							for (auto pred : proj[i].path_args.pred_set)
-								pred_id_set.push_back(kvstore->getIDByPredicate(pred));
+							{
+								TYPE_PREDICATE_ID pred_id = kvstore->getIDByPredicate(pred);
+								// cout << "pred_set id:" << pred_id << endl;
+								if (pred_id != INVALID)
+								{
+									pred_id_set.push_back(pred_id);
+								}
+							}
 						}
 						else
 						{
@@ -2435,6 +2452,7 @@ void GeneralEvaluation::getFinalResult(ResultSet &ret_result)
 								break;
 						}
 						ss << "]}\"";
+						cout << "paths length:" << uid_ls.size() * vid_ls.size() << endl;
 						if (proj[i].aggregate_type == QueryTree::ProjectionVar::cycleBoolean_type)
 						{
 							if (exist)
@@ -2443,7 +2461,9 @@ void GeneralEvaluation::getFinalResult(ResultSet &ret_result)
 								new_result0.result.back().str[proj2new[i] - new_result0_id_cols] = "\"false\"^^<http://www.w3.org/2001/XMLSchema#boolean>";
 						}
 						else
-							ss >> new_result0.result.back().str[proj2new[i] - new_result0_id_cols];
+						{
+							new_result0.result.back().str[proj2new[i] - new_result0_id_cols] = ss.str();
+						}	
 					}
 				}
 				begin = end + 1;
