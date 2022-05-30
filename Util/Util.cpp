@@ -248,6 +248,7 @@ Util::config_advanced()
 bool Util::setGlobalConfig(INIParser& parser, string rootname, string keyname)
 {
     string value = parser.GetValue(rootname, keyname);
+    cout<<"the root name："<<rootname<<", the key name:"<<keyname<<",the value:"<<value<<endl;
     if(value.empty()==false)
         Util::global_config[keyname] = value;
     return true;
@@ -258,7 +259,9 @@ string Util::getConfigureValue(string keyname)
     map<string, string>::iterator iter = Util::global_config.find(keyname);
 	if (iter != Util::global_config.end())
 	{
-		    return iter->second;
+        string value=iter->second;
+        value=Util::replace_all(value,"\"","");
+		    return value;
 	}
 	return "";
 }
@@ -269,7 +272,18 @@ bool Util::configure_new()
     ini_parser.ReadINI("conf.ini");
     /*string value=ini_parser.GetValue("ghttp", "max_out_limit");
     Util::global_config["max_out_limit"] = value;*/
+    
+    
     Util::setGlobalConfig(ini_parser, "ghttp", "thread_num");
+
+    cout << "the current settings are as below: " << endl;
+    cout << "key : value" << endl;
+    cout << "------------------------------------------------------------" << endl;
+    for (map<string, string>::iterator it = Util::global_config.begin(); it != Util::global_config.end(); ++it)
+    {
+        cout << it->first << " : " << it->second << endl;
+    }
+    cout << endl;
     Util::setGlobalConfig(ini_parser, "ghttp", "max_database_num");
     Util::setGlobalConfig(ini_parser, "ghttp", "max_user_num");
     Util::setGlobalConfig(ini_parser, "ghttp", "root_username");
@@ -281,9 +295,12 @@ bool Util::configure_new()
     Util::setGlobalConfig(ini_parser, "ghttp", "max_output_size");
     Util::setGlobalConfig(ini_parser, "ghttp", "db_path");
     Util::setGlobalConfig(ini_parser, "ghttp", "backup_path");
-    Util::setGlobalConfig(ini_parser, "ghttp", "ip");
+
+    
+   // Util::setGlobalConfig(ini_parser, "ghttp", "ip");
     Util::setGlobalConfig(ini_parser, "ghttp", "ip_allow_path");
     Util::setGlobalConfig(ini_parser, "ghttp", "ip_deny_path");
+    Util::setGlobalConfig(ini_parser, "ghttp", "ip_access_log");
     Util::setGlobalConfig(ini_parser, "system", "version");
     Util::setGlobalConfig(ini_parser, "system", "licensetype");
     cout << "the current settings are as below: " << endl;
@@ -1727,6 +1744,17 @@ Util::getTimeString() {
 }
 
 string
+Util::getTimeString3() {
+	static const int max = 40; // max length of time string
+	char time_str[max];
+	time_t timep;
+	time(&timep);
+	strftime(time_str, max, "%Y-%m-%d %H:%M:%S", localtime(&timep));
+	return string(time_str);
+}
+
+
+string
 Util::getTimeString2() {
 	static const int max = 20; // max length of time string
 	char time_str[max];
@@ -2507,100 +2535,160 @@ Util::update_transactionlog(std::string TID, std::string state, std::string end_
 }
 
 string 
-Util::get_transactionlog()
+Util::get_transactionlog(int page_no, int page_size)
 {
+    int totalSize = 0;
+    int totalPage = 0;
+
     pthread_rwlock_rdlock(&transactionlog_lock);
     ifstream in;
     in.open(TRANSACTION_LOG_PATH, ios::in);
+    string line;
+    int startLine;
+    int endLine;
+    if(page_no < 1)
+    {
+        page_no = 1;
+    }
+    if(page_size < 1)
+    {
+        page_size = 10;
+    }
+    startLine = (page_no - 1)*page_size + 1;
+    endLine = page_no*page_size + 1;
+    //count total
+    while (getline(in, line, '\n'))
+    {
+        totalSize++;
+    }
+    in.close();
     Document all;
+    Document::AllocatorType &allocator = all.GetAllocator();
     all.SetObject();
     Value a(kObjectType);
     Value darray(kArrayType);
-    string line;
-    Document d;
-    bool success = true;
-    while (getline(in, line)) {
-        cout << line << endl;
-        StringStream is(line.c_str());
-        d.ParseStream(is);
-        Value rec(kObjectType);
-        if (d.HasMember("db_name"))
-        {
-            rec.AddMember("db_name", d["db_name"], all.GetAllocator());
-        }
-        else
-        {
-            success = false;
-            darray.SetArray();
-            break;
-        }
-        if (d.HasMember("TID"))
-        {
-            rec.AddMember("TID", d["TID"], all.GetAllocator());
-        }
-        else
-        {
-            success = false;
-            darray.SetArray();
-            break;
-        }
-        if (d.HasMember("user"))
-        {
-            rec.AddMember("user", d["user"], all.GetAllocator());
-        }
-        else
-        {
-            success = false;
-            darray.SetArray();
-            break;
-        }
-        if (d.HasMember("begin_time"))
-        {
-            rec.AddMember("begin_time", d["begin_time"], all.GetAllocator());
-        }
-        else
-        {
-            success = false;
-            darray.SetArray();
-            break;
-        }
-        if (d.HasMember("state"))
-        {
-            rec.AddMember("state", d["state"], all.GetAllocator());
-        }
-        else
-        {
-            success = false;
-            darray.SetArray();
-            break;
-        }
-        if (d.HasMember("end_time"))
-        {
-            rec.AddMember("end_time", d["end_time"], all.GetAllocator());
-        }
-        else
-        {
-            success = false;
-            darray.SetArray();
-            break;
-        }
-        darray.PushBack(rec, all.GetAllocator());
-    }
-    in.close();
-    if (success)
+    if (totalSize > 0)
     {
-          all.AddMember("StatusCode", 0, all.GetAllocator());
-          all.AddMember("StatusMsg", "Get Transaction log success", all.GetAllocator());
-          all.AddMember("list", darray, all.GetAllocator());
+        totalPage = (totalSize/page_size) + (totalSize%page_size == 0 ? 0 : 1);
+        if (page_no > totalPage)
+        {
+            pthread_rwlock_unlock(&transactionlog_lock);
+            throw runtime_error("page_no more then max_page_no " + to_string(totalPage));
+        }
+        startLine = totalSize - page_size*page_no + 1;
+        endLine = totalSize - page_size*(page_no - 1) + 1;
+        if (startLine < 1)
+        {
+            startLine = 1;
+        }
+        // seek to start line;
+        in.open(TRANSACTION_LOG_PATH, ios::in);
+        int i_temp;
+        char buf_temp[1024];
+        in.seekg(0, ios::beg);
+        for (i_temp = 1; i_temp < startLine; i_temp++)
+        {
+            in.getline(buf_temp, sizeof(buf_temp));
+        }
+        
+        string line;
+        Document d;
+        bool success = true;
+        while (startLine < endLine && getline(in, line, '\n')) {
+            StringStream is(line.c_str());
+            d.ParseStream(is);
+            Value rec(kObjectType);
+            if (d.HasMember("db_name"))
+            {
+                rec.AddMember("db_name", d["db_name"], allocator);
+            }
+            else
+            {
+                success = false;
+                darray.SetArray();
+                break;
+            }
+            if (d.HasMember("TID"))
+            {
+                rec.AddMember("TID", d["TID"], allocator);
+            }
+            else
+            {
+                success = false;
+                darray.SetArray();
+                break;
+            }
+            if (d.HasMember("user"))
+            {
+                rec.AddMember("user", d["user"], allocator);
+            }
+            else
+            {
+                success = false;
+                darray.SetArray();
+                break;
+            }
+            if (d.HasMember("begin_time"))
+            {
+                rec.AddMember("begin_time", d["begin_time"], allocator);
+            }
+            else
+            {
+                success = false;
+                darray.SetArray();
+                break;
+            }
+            if (d.HasMember("state"))
+            {
+                rec.AddMember("state", d["state"], allocator);
+            }
+            else
+            {
+                success = false;
+                darray.SetArray();
+                break;
+            }
+            if (d.HasMember("end_time"))
+            {
+                rec.AddMember("end_time", d["end_time"], allocator);
+            }
+            else
+            {
+                success = false;
+                darray.SetArray();
+                break;
+            }
+            darray.PushBack(rec, allocator);
+            startLine++;
+        }
+        in.close();
+        if (success)
+        {
+            all.AddMember("StatusCode", 0, allocator);
+            all.AddMember("StatusMsg", "Get Transaction log success", allocator);
+            all.AddMember("list", darray, allocator);
+            all.AddMember("totalSize", totalSize, allocator);
+            all.AddMember("totalPage", totalPage, allocator);
+            all.AddMember("pageNo", page_no, allocator);
+            all.AddMember("pageSize", page_size, allocator);
+        }
+        else
+        {
+            all.AddMember("StatusCode", 1005, allocator);
+            all.AddMember("message", "error! Transaction log corrupted", allocator);
+        }
     }
-       
     else
     {
-         all.AddMember("StatusCode", 1005, all.GetAllocator());
-         all.AddMember("message", "error! Transaction log corrupted", all.GetAllocator());
-
+        darray.SetArray();
+        all.AddMember("StatusCode", 0, allocator);
+        all.AddMember("StatusMsg", "Get Transaction log success", allocator);
+        all.AddMember("list", darray, allocator);
+        all.AddMember("totalSize", totalSize, allocator);
+        all.AddMember("totalPage", totalPage, allocator);
+        all.AddMember("pageNo", page_no, allocator);
+        all.AddMember("pageSize", page_size, allocator);
     }
-       
     StringBuffer buffer;
     Writer<StringBuffer> writer(buffer);
     all.Accept(writer);

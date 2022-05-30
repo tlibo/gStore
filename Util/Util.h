@@ -377,6 +377,7 @@ public:
 	static std::string getTimeName();
 	static std::string getTimeString();
     static std::string getTimeString2();
+    static std::string getTimeString3();
     static int getRandNum();
 	static std::string get_folder_name(const std::string path, const std::string db_name);
 	static std::string get_backup_time(const std::string path, const std::string db_name);
@@ -489,10 +490,10 @@ public:
 	static bool has_record_backuplog(std::string db_name);
 
 	static void init_transactionlog();
-	static int add_transactionlog(std::string db_name, std::string user, std::string TID,  std::string begin_time, std::string status = "RUNNING",  std::string end_time = "inf");
+	static int add_transactionlog(std::string db_name, std::string user, std::string TID,  std::string begin_time, std::string status = "RUNNING",  std::string end_time = "INF");
 	static int delete_transactionlog(std::string db_name, std::string TID);
 	static int update_transactionlog(std::string db_name, std::string status, std::string end_time);
-	static std::string get_transactionlog();
+	static std::string get_transactionlog(int page_no, int page_size);
 	static void abort_transactionlog(long end_time);
 
 	static long int get_timestamp(std::string& line);

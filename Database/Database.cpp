@@ -22,6 +22,7 @@ Database::Database()
 	this->id_tuples_file = "id_tuples";
 	this->update_log = "update.log";
 	this->update_log_since_backup = "update_since_backup.log";
+	this->csr = NULL;
 	// this->csr = new CSR[2];
 
 	string kv_store_path = store_path + "/kv_store";
@@ -79,6 +80,7 @@ Database::Database(string _name)
 	this->id_tuples_file = "id_tuples";
 	this->update_log = "update.log";
 	this->update_log_since_backup = "update_since_backup.log";
+	this->csr = NULL;
 	// this->csr = new CSR[2];
 
 	string kv_store_path = store_path + "/kv_store";
@@ -5187,6 +5189,7 @@ Database::batch_insert(const TripleWithObjType* _triples, TYPE_TRIPLE_NUM _tripl
 	unsigned update_num_s = 0;
 	unsigned update_num_p = 0;
 	unsigned update_num_o = 0;
+	unsigned update_num_subject=0;
 	
 	if (!_is_restore) {
 		write_update_log(_triples, _triple_num, 1, txn);
@@ -5200,6 +5203,7 @@ Database::batch_insert(const TripleWithObjType* _triples, TYPE_TRIPLE_NUM _tripl
 		if (_sub_id == INVALID_ENTITY_LITERAL_ID)
 		{
 			_sub_id = this->allocEntityID();
+			update_num_subject=update_num_subject+1;
 			(this->kvstore)->setIDByEntity(_triple.subject, _sub_id);
 			(this->kvstore)->setEntityByID(_sub_id, _triple.subject);
 			vertices.push_back(_sub_id);
@@ -5286,11 +5290,21 @@ Database::batch_insert(const TripleWithObjType* _triples, TYPE_TRIPLE_NUM _tripl
 	pre_t.join();
 	obj_t.join();
 
+    unsigned update_num_triple=update_num_s;
+	if(update_num_triple<update_num_p)
+	update_num_triple=update_num_p;
+	if(update_num_triple<update_num_o)
+	update_num_triple=update_num_o;
+
+	cout <<"update_num_triple:"<<update_num_triple<<",update_num_s:"<< update_num_s << ",update_num_p:" << update_num_p << ",update_num_o:" << update_num_o << endl;
+	
 	//cout << update_num_s << " " << update_num_p << " " << update_num_o << endl;
-	assert(update_num_o == update_num_p);
-	assert(update_num_s == update_num_o);
+	// assert(update_num_o == update_num_p);
+	// assert(update_num_s == update_num_o);
 
 	this->stringindex->SetTrie(kvstore->getTrie());
+	this->triples_num=this->triples_num+update_num_triple;
+	this->sub_num=this->sub_num+update_num_subject;
 	//update string index
 	this->stringindex->change(vertices, *this->kvstore, true);
 	this->stringindex->change(predicates, *this->kvstore, false);
@@ -5307,6 +5321,8 @@ Database::batch_remove(const TripleWithObjType* _triples, TYPE_TRIPLE_NUM _tripl
 	unsigned update_num_s = 0;
 	unsigned update_num_p = 0;
 	unsigned update_num_o = 0;
+	unsigned update_num_subject=0;
+	unsigned update_num_triple=0;
 
 	vector<TYPE_ENTITY_LITERAL_ID> vertices, predicates;
 	set<unsigned> sub_ids, pre_ids, obj_ids;
@@ -5367,9 +5383,16 @@ Database::batch_remove(const TripleWithObjType* _triples, TYPE_TRIPLE_NUM _tripl
 	pre_t.join();
 	obj_t.join();
 	//cout << update_num_s << " " << update_num_p << " " << update_num_o << endl;
-	assert(update_num_o == update_num_p);
-	assert(update_num_s == update_num_o);
+	// assert(update_num_o == update_num_p);
+	// assert(update_num_s == update_num_o);
 
+    if(update_num_triple<update_num_p)
+	update_num_triple=update_num_p;
+	if(update_num_triple<update_num_o)
+	update_num_triple=update_num_o;
+
+	cout <<"update_num_triple:"<<update_num_triple<<",update_num_s:"<< update_num_s << ",update_num_p:" << update_num_p << ",update_num_o:" << update_num_o << endl;
+	
 	if(txn == nullptr)
 	{
 		for(auto _sub_id: sub_ids)
@@ -5434,6 +5457,7 @@ Database::batch_remove(const TripleWithObjType* _triples, TYPE_TRIPLE_NUM _tripl
 
 		this->stringindex->SetTrie(kvstore->getTrie());
 		//update string index
+		this->triples_num=this->triples_num-update_num_triple;
 		this->stringindex->disable(vertices, true);
 		this->stringindex->disable(predicates, false);
 	}
