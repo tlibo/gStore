@@ -1,8 +1,8 @@
 /*
  * @Author: liwenjie
  * @Date: 2021-09-23 16:55:53
- * @LastEditTime: 2022-04-12 14:35:27
- * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2022-06-16 13:40:59
+ * @LastEditors: jeevan 2606583267@qq.com
  * @Description: In User Settings Edit
  * @FilePath: /gstore/Main/ghttp.cpp
  */
@@ -5452,6 +5452,7 @@ int clearPrivilege(string username)
 	
 	
 }
+
 bool checkPrivilege(string username, string type, string db_name)
 {
 	if(db_name == "system")
@@ -5459,9 +5460,7 @@ bool checkPrivilege(string username, string type, string db_name)
 
 	if(username == ROOT_USERNAME)
 		return 1;
-	if (type == "login" || type == "testConnect" || type == "getCoreVersion" 
-        || type == "funquery" || type == "funcudb" || type == "funreview"
-        || type == "check" || type == "show")
+	if (type == "login" || type == "testConnect" || type == "getCoreVersion" || type == "check" || type == "show")
     {
         return 1;
     }
