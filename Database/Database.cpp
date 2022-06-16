@@ -553,7 +553,10 @@ Database::release(FILE* fp0)
 Database::~Database()
 {
 	pthread_rwlock_destroy(&(this->update_lock));
-	this->unload();
+	
+    this->unload();
+	
+	
 	//fclose(Util::debug_database);
 	//Util::debug_database = NULL;	//debug: when multiple databases
 }
@@ -824,7 +827,7 @@ Database::load(bool loadCSR)
 
 	this->if_loaded = true;
 
-	cout << "finish load" << endl;
+	cout << "finish load,load status:"<<this->if_loaded<< endl;
 
 	//BETTER: for only-read application(like endpoint), 3 id2values trees can be closed now
 	//and we should load all trees on only READ mode
@@ -1547,10 +1550,13 @@ Database::unload()
 	//cout << "delete stringindex" << endl;
 	delete this->stringindex;
 	this->stringindex = NULL;
-
-	this->saveDBInfoFile();
-	this->writeIDinfo();
-	this->initIDinfo();
+    //cout<<" call the unload function, load status: "<<this->if_loaded<<"."<<endl;
+	if (this->if_loaded)
+	{
+		this->saveDBInfoFile();
+		this->writeIDinfo();
+		this->initIDinfo();
+	}
 
 	this->if_loaded = false;
 	this->clear_update_log();
@@ -2107,7 +2113,7 @@ Database::build(const string& _rdf_file)
 	cout << "entityNum is " << this->entity_num << endl;
 	cout << "preNum is " << this->pre_num << endl;
 	cout << "literalNum is " << this->literal_num << endl;
-
+    //this->if_loaded=true;
 	//this->vstree->saveTree();
 	//delete this->vstree;
 	//this->vstree = NULL;
@@ -2119,6 +2125,9 @@ Database::build(const string& _rdf_file)
 	//system(cmd.c_str());
 	//cout << "signature file removed" << endl;
 
+    this->saveDBInfoFile();
+	this->writeIDinfo();
+	this->initIDinfo();
 	return true;
 }
 

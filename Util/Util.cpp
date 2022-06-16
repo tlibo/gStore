@@ -248,7 +248,7 @@ Util::config_advanced()
 bool Util::setGlobalConfig(INIParser& parser, string rootname, string keyname)
 {
     string value = parser.GetValue(rootname, keyname);
-    cout<<"the root name："<<rootname<<", the key name:"<<keyname<<",the value:"<<value<<endl;
+    //cout<<"the root name："<<rootname<<", the key name:"<<keyname<<",the value:"<<value<<endl;
     if(value.empty()==false)
         Util::global_config[keyname] = value;
     return true;
@@ -303,14 +303,14 @@ bool Util::configure_new()
     Util::setGlobalConfig(ini_parser, "ghttp", "ip_access_log");
     Util::setGlobalConfig(ini_parser, "system", "version");
     Util::setGlobalConfig(ini_parser, "system", "licensetype");
-    cout << "the current settings are as below: " << endl;
-    cout << "key : value" << endl;
-    cout << "------------------------------------------------------------" << endl;
-    for (map<string, string>::iterator it = Util::global_config.begin(); it != Util::global_config.end(); ++it)
-    {
-        cout << it->first << " : " << it->second << endl;
-    }
-    cout << endl;
+    // cout << "the current settings are as below: " << endl;
+    // cout << "key : value" << endl;
+    // cout << "------------------------------------------------------------" << endl;
+    // for (map<string, string>::iterator it = Util::global_config.begin(); it != Util::global_config.end(); ++it)
+    // {
+    //     cout << it->first << " : " << it->second << endl;
+    // }
+    // cout << endl;
     return true;
 }
 
