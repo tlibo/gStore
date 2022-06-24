@@ -1,7 +1,7 @@
 /*
  * @Author: liwenjie
  * @Date: 2021-09-23 16:55:53
- * @LastEditTime: 2022-06-16 13:40:59
+ * @LastEditTime: 2022-06-24 18:03:51
  * @LastEditors: jeevan 2606583267@qq.com
  * @Description: In User Settings Edit
  * @FilePath: /gstore/Main/ghttp.cpp
@@ -1608,11 +1608,11 @@ void load_thread_new(const shared_ptr<HttpServer::Response>& response, string db
 		return;
 	}
 	pthread_rwlock_rdlock(&databases_map_lock);
-	std::map<std::__cxx11::string, Database *>::iterator it = databases.find(db_name);
+	std::map<std::string, Database *>::iterator iter = databases.find(db_name);
 	pthread_rwlock_unlock(&databases_map_lock);
-	if (databases.find(db_name) != databases.end())
+	if (iter != databases.end())
 	{
-		Database * current_database = it->second;
+		Database * current_database = iter->second;
 		string csr_str = "false";
 		if (current_database->csr != NULL)
 		{
