@@ -25,15 +25,16 @@ class QueryParser: public SPARQLBaseVisitor
 {
 private:
 	QueryTree *query_tree_ptr;
-	std::map<std::string, std::string> prefix_map;	// Stores mapping from
-		// the short form of prefixes to their full URIs
+	std::map<std::string, std::string> prefix_map;
+	bool firstVisitGroupGraphPatternSub;
 
 public:
-	QueryParser() {}
-	QueryParser(QueryTree *qtp): query_tree_ptr(qtp) {}
+	QueryParser(): firstVisitGroupGraphPatternSub(true) {}
+	QueryParser(QueryTree *qtp): firstVisitGroupGraphPatternSub(true), query_tree_ptr(qtp) {}
 	void setQueryTree(QueryTree *qtp) { query_tree_ptr = qtp; }
 	void SPARQLParse(const std::string &query);	// Overall driver function
 
+	antlrcpp::Any visitQueryUnit(SPARQLParser::QueryUnitContext *ctx);
 	antlrcpp::Any visitQuery(SPARQLParser::QueryContext *ctx);
 	antlrcpp::Any visitSelectquery(SPARQLParser::SelectqueryContext *ctx);
 	antlrcpp::Any visitAskquery(SPARQLParser::AskqueryContext *ctx);
@@ -71,10 +72,7 @@ public:
 	void parseSelectAggregateFunction(SPARQLParser::ExpressionContext *expCtx, \
 		SPARQLParser::VarContext *varCtx);
 	void buildCompTree(antlr4::tree::ParseTree *root, int oper_pos, QueryTree::CompTreeNode &curr_node);
-	void buildFilterTree(antlr4::tree::ParseTree *root, \
-		QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild *currChild, \
-		QueryTree::GroupPattern::FilterTree::FilterTreeNode &filter, std::string tp);
-	void addTriple(std::string subject, std::string predicate, std::string object, \
+	void addTriple(std::string subject, std::string predicate, std::string object, bool kleene, \
 		QueryTree::GroupPattern &group_pattern);
 	void replacePrefix(std::string &str);
 	std::string getNumeric(SPARQLParser::NumericLiteralContext *ctx);

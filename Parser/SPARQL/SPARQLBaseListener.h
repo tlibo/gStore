@@ -346,6 +346,9 @@ public:
   virtual void enterVarOrIri(SPARQLParser::VarOrIriContext * /*ctx*/) override { }
   virtual void exitVarOrIri(SPARQLParser::VarOrIriContext * /*ctx*/) override { }
 
+  virtual void enterVarOrIriSet(SPARQLParser::VarOrIriSetContext * /*ctx*/) override { }
+  virtual void exitVarOrIriSet(SPARQLParser::VarOrIriSetContext * /*ctx*/) override { }
+
   virtual void enterVar(SPARQLParser::VarContext * /*ctx*/) override { }
   virtual void exitVar(SPARQLParser::VarContext * /*ctx*/) override { }
 

@@ -10,6 +10,83 @@
 
 using namespace std;
 
+TempResult::ResultPair::ResultPair()
+{
+	id = NULL;
+	sz = 0;
+}
+
+TempResult::ResultPair::ResultPair(const ResultPair& that)
+{
+	if (that.id)
+	{
+		id = new unsigned[that.sz];
+		// TODO: ResultPair cannot access id_varset of its parent TempResult
+		memcpy(id, that.id, (that.sz) * sizeof(unsigned));
+	}else{
+		id = nullptr;
+	}	sz = that.sz;
+	str = that.str;
+}
+
+TempResult::ResultPair& TempResult::ResultPair::operator=(const ResultPair& that)
+{
+	if (that.id)
+	{
+		// unsigned *local_id = new unsigned[that.id_varset.getVarsetSize()];
+		unsigned *local_id = new unsigned[that.sz];
+		memcpy(local_id, that.id, (that.sz) * sizeof(unsigned));
+		if (id)
+			delete[] id;	// Prevent exception leaving original id in limbo
+		id = local_id;
+	}
+	else
+	{
+		if (id)
+			delete[] id;
+		id = NULL;
+	}
+	sz = that.sz;
+	str = that.str;
+
+	return *this;
+}
+
+TempResult::TempResult(const TempResult& that)
+{
+	id_varset = that.id_varset;
+	str_varset = that.str_varset;
+	result = that.result;
+}
+
+TempResult& TempResult::operator=(const TempResult& that)
+{
+	id_varset = that.id_varset;
+	str_varset = that.str_varset;
+	result = that.result;
+
+	return *this;
+}
+
+TempResultSet::TempResultSet()
+{
+	initial = true;
+}
+
+TempResultSet::TempResultSet(const TempResultSet& that)
+{
+	results = that.results;
+	initial = that.initial;
+}
+
+TempResultSet& TempResultSet::operator=(const TempResultSet& that)
+{
+	results = that.results;
+	initial = that.initial;
+
+	return *this;
+}
+
 Varset TempResult::getAllVarset()
 {
 	return this->id_varset + this->str_varset;
@@ -19,7 +96,8 @@ void TempResult::release()
 {
 	for (int i = 0; i < (int)this->result.size(); i++)
 	{
-		delete[] result[i].id;
+		if (result[i].id)
+			delete[] result[i].id;
 		vector<string>().swap(result[i].str);
 	}
 }
@@ -53,26 +131,37 @@ int TempResult::compareRow(const ResultPair &x, const int x_id_cols, const vecto
 
 void TempResult::sort(int l, int r, const vector<int> &this_pos)
 {
-	int i = l, j = r;
-	ResultPair m = this->result[(l + r) / 2];
+	if (r <= l)
+		return;
+	int i = l, j = r + 1;
+	swap(this->result[l].id, this->result[(l + r) / 2].id);
+	swap(this->result[l].str, this->result[(l + r) / 2].str);
+	ResultPair &m = this->result[l];
 
 	int this_id_cols = this->id_varset.getVarsetSize();
-	do
-	{
-		while (compareRow(this->result[i], this_id_cols, this_pos, m, this_id_cols, this_pos) == -1)	i++;
-		while (compareRow(m, this_id_cols, this_pos, this->result[j], this_id_cols, this_pos) == -1)	j--;
-		if (i <= j)
-		{
-			swap(this->result[i].id, this->result[j].id);
-			swap(this->result[i].str, this->result[j].str);
-			i++;
-			j--;
-		}
-	}
-	while (i <= j);
 
-	if (l < j)	sort(l, j, this_pos);
-	if (i < r)	sort(i, r, this_pos);
+	while (true)
+	{
+		while (compareRow(this->result[++i], this_id_cols, this_pos, m, this_id_cols, this_pos) == -1)
+		{
+			if (i == r)
+				break;
+		}
+		while (compareRow(m, this_id_cols, this_pos, this->result[--j], this_id_cols, this_pos) == -1)
+		{
+			if (j == l)
+				break;
+		}
+		if (i >= j)
+			break;
+		swap(this->result[i].id, this->result[j].id);
+		swap(this->result[i].str, this->result[j].str);
+	}
+	swap(m.id, this->result[j].id);
+	swap(m.str, this->result[j].str);
+
+	sort(l, j - 1, this_pos);
+	sort(j + 1, r, this_pos);
 }
 
 int TempResult::findLeftBounder(const vector<int> &this_pos, const ResultPair &x, const int x_id_cols, const vector<int> &x_pos) const
@@ -183,6 +272,7 @@ void TempResult::doJoin(TempResult &x, TempResult &r)
 				if (r_id_cols > 0)
 				{
 					r.result.back().id = new unsigned [r_id_cols];
+					r.result.back().sz = r_id_cols;
 					unsigned *v = r.result.back().id;
 
 					for (int k = 0; k < this_id_cols; k++)
@@ -223,6 +313,7 @@ void TempResult::doJoin(TempResult &x, TempResult &r)
 				if (r_id_cols > 0)
 				{
 					r.result.back().id = new unsigned [r_id_cols];
+					r.result.back().sz = r_id_cols;
 					unsigned *v = r.result.back().id;
 
 					for (int k = 0; k < this_id_cols; k++)
@@ -266,6 +357,7 @@ void TempResult::doUnion(TempResult &r)
 		if (r_id_cols > 0)
 		{
 			r.result.back().id = new unsigned [r_id_cols];
+			r.result.back().sz = r_id_cols;
 			unsigned *v = r.result.back().id;
 
 			for (int k = 0; k < this_id_cols; k++)
@@ -339,6 +431,7 @@ void TempResult::doOptional(vector<bool> &binding, TempResult &x, TempResult &rn
 				if (ra_id_cols > 0)
 				{
 					ra.result.back().id = new unsigned [ra_id_cols];
+					ra.result.back().sz = ra_id_cols;
 					unsigned *v = ra.result.back().id;
 
 					for (int k = 0; k < this_id_cols; k++)
@@ -371,6 +464,7 @@ void TempResult::doOptional(vector<bool> &binding, TempResult &x, TempResult &rn
 				if (rn_id_cols > 0)
 				{
 					rn.result.back().id = new unsigned [rn_id_cols];
+					rn.result.back().sz = rn_id_cols;
 					unsigned *v = rn.result.back().id;
 
 					for (int k = 0; k < this_id_cols; k++)
@@ -412,6 +506,7 @@ void TempResult::doMinus(TempResult &x, TempResult &r)
 			if (r_id_cols > 0)
 			{
 				r.result.back().id = new unsigned [r_id_cols];
+				r.result.back().sz = r_id_cols;
 				unsigned *v = r.result.back().id;
 
 				for (int k = 0; k < this_id_cols; k++)
@@ -445,6 +540,7 @@ void TempResult::doMinus(TempResult &x, TempResult &r)
 				if (r_id_cols > 0)
 				{
 					r.result.back().id = new unsigned [r_id_cols];
+					r.result.back().sz = r_id_cols;
 					unsigned *v = r.result.back().id;
 
 					for (int k = 0; k < this_id_cols; k++)
@@ -476,8 +572,6 @@ void TempResult::getFilterString(QueryTree::GroupPattern::FilterTree::FilterTree
 			{
 				femv.datatype = EvalMultitypeValue::xsd_boolean;
 				femv.bool_value = EvalMultitypeValue::EffectiveBooleanValue::error_value;
-
-				cout << "SUSPECT??" << endl;
 
 				return;
 			}
@@ -1003,7 +1097,7 @@ EvalMultitypeValue
 				ret_femv.str_value.begin(), ::tolower);
 		if (langTag != "")
 			ret_femv.str_value += "@" + langTag;
-		
+
 		return ret_femv;
 	}
 
@@ -1454,6 +1548,34 @@ TempResult::doComp(const QueryTree::CompTreeNode &root, ResultPair &row, int id_
 		else
 			return ret_femv;
 	}
+	else if (root.oprt == "HOURS")
+	{
+		EvalMultitypeValue x;
+
+		x = doComp(root.children[0], row, id_cols, stringindex, this_varset, entity_literal_varset);
+		if (x.datatype == EvalMultitypeValue::xsd_datetime)
+		{
+			ret_femv.datatype = EvalMultitypeValue::xsd_integer;
+			ret_femv.int_value = x.dt_value.date[3];
+			return ret_femv;
+		}
+		else
+			return ret_femv;
+	}
+	else if (root.oprt == "MINUTES")
+	{
+		EvalMultitypeValue x;
+
+		x = doComp(root.children[0], row, id_cols, stringindex, this_varset, entity_literal_varset);
+		if (x.datatype == EvalMultitypeValue::xsd_datetime)
+		{
+			ret_femv.datatype = EvalMultitypeValue::xsd_integer;
+			ret_femv.int_value = x.dt_value.date[4];
+			return ret_femv;
+		}
+		else
+			return ret_femv;
+	}
 	else if (root.oprt == "UCASE" || root.oprt == "LCASE")
 	{
 		EvalMultitypeValue x;
@@ -1486,7 +1608,7 @@ TempResult::doComp(const QueryTree::CompTreeNode &root, ResultPair &row, int id_
 				ret_femv.str_value.begin(), ::tolower);
 		if (langTag != "")
 			ret_femv.str_value += "@" + langTag;
-		
+
 		return ret_femv;
 	}
 	else if (root.oprt == "CONTAINS" || root.oprt == "STRSTARTS")
@@ -1606,6 +1728,21 @@ TempResult::doComp(const QueryTree::CompTreeNode &root, ResultPair &row, int id_
 
 		return ret_femv;
 	}
+	else if (root.oprt == "IF")
+	{
+		EvalMultitypeValue x, y, z;
+
+		x = doComp(root.children[0], row, id_cols, stringindex, this_varset, entity_literal_varset);
+		if (x.datatype == EvalMultitypeValue::xsd_boolean && x.bool_value.value == EvalMultitypeValue::EffectiveBooleanValue::error_value \
+			|| x.datatype != EvalMultitypeValue::xsd_boolean)
+			return ret_femv;
+		if (x.datatype == EvalMultitypeValue::xsd_boolean && x.bool_value.value == EvalMultitypeValue::EffectiveBooleanValue::true_value)
+			ret_femv = doComp(root.children[1], row, id_cols, stringindex, this_varset, entity_literal_varset);
+		else
+			ret_femv = doComp(root.children[2], row, id_cols, stringindex, this_varset, entity_literal_varset);
+		
+		return ret_femv;
+	}
 
 	return ret_femv;
 }
@@ -1637,6 +1774,7 @@ void TempResult::doFilter(const QueryTree::CompTreeNode &filter, TempResult &r, 
 			if (r_id_cols > 0)
 			{
 				r.result.back().id = new unsigned [r_id_cols];
+				r.result.back().sz = r_id_cols;
 				unsigned *v = r.result.back().id;
 
 				for (int k = 0; k < this_id_cols; k++)
@@ -1653,6 +1791,19 @@ void TempResult::doFilter(const QueryTree::CompTreeNode &filter, TempResult &r, 
 			}
 		}
 	}
+}
+
+void TempResult::doBind(const QueryTree::GroupPattern::Bind &bind, KVstore *kvstore, StringIndex *stringindex, Varset &entity_literal_varset)
+{
+	Varset this_varset = this->getAllVarset();
+	int this_id_cols = this->id_varset.getVarsetSize();
+	this->str_varset.addVar(bind.var);
+	for (int i = 0; i < (int)this->result.size(); i++)
+	{
+		EvalMultitypeValue ret_femv = doComp(bind.bindExpr, this->result[i], this_id_cols, stringindex, this_varset, entity_literal_varset);
+		this->result[i].str.push_back(ret_femv.getRep());
+	}
+	return;
 }
 
 void TempResult::print(int no)
@@ -1890,6 +2041,23 @@ void TempResultSet::doFilter(const QueryTree::CompTreeNode &filter, TempResultSe
 	printf("after doFilter, used %ld ms.\n", tv_end - tv_begin);
 }
 
+void TempResultSet::doBind(const QueryTree::GroupPattern::Bind &bind, KVstore *kvstore, StringIndex *stringindex, Varset &entity_literal_varset)
+{
+	long tv_begin = Util::get_cur_time();
+
+	if (this->results.size() == 0)
+	{
+		this->results.push_back(TempResult());
+		this->results.back().result.push_back(TempResult::ResultPair());
+	}
+	
+	for (int i = 0; i < (int)this->results.size(); i++)
+		this->results[i].doBind(bind, kvstore, stringindex, entity_literal_varset);
+
+	long tv_end = Util::get_cur_time();
+	printf("after doBind, used %ld ms.\n", tv_end - tv_begin);
+}
+
 void TempResultSet::doProjection1(Varset &proj, TempResultSet &r, StringIndex *stringindex, Varset &entity_literal_varset)
 {
 	long tv_begin = Util::get_cur_time();
@@ -1930,6 +2098,7 @@ void TempResultSet::doProjection1(Varset &proj, TempResultSet &r, StringIndex *s
 				if (r_id_cols > 0)
 				{
 					r.results[0].result.back().id = new unsigned [r_id_cols];
+					r.results[0].result.back().sz = r_id_cols;
 					unsigned *v = r.results[0].result.back().id;
 
 					for (int k = 0; k < r_id_cols; k++)
@@ -1994,6 +2163,7 @@ void TempResultSet::doDistinct1(TempResultSet &r)
 				if (r_id_cols > 0)
 				{
 					r_results0.result.back().id = new unsigned [r_id_cols];
+					r_results0.result.back().sz = r_id_cols;
 					unsigned *v = r_results0.result.back().id;
 
 					for (int k = 0; k < this_id_cols; k++)

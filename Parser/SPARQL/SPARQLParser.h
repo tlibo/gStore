@@ -39,18 +39,21 @@ public:
     K_SIMPLECYCLEPATH = 131, K_SIMPLECYCLEBOOLEAN = 132, K_CYCLEPATH = 133, 
     K_CYCLEBOOLEAN = 134, K_SHORTESTPATH = 135, K_SHORTESTPATHLEN = 136, 
     K_KHOPREACHABLE = 137, K_KHOPENUMERATE = 138, K_KHOPREACHABLEPATH = 139, 
-    K_PPR = 140, KK_INSERTDATA = 141, KK_DELETEDATA = 142, KK_DELETEWHERE = 143, 
-    KK_ENCODE_FOR_URI = 144, KK_MD5 = 145, KK_SHA1 = 146, KK_SHA256 = 147, 
-    KK_SHA384 = 148, KK_SHA512 = 149, KK_GROUP_CONCAT = 150, IRIREF = 151, 
-    PNAME_NS = 152, PNAME_LN = 153, BLANK_NODE_LABEL = 154, VAR1 = 155, 
-    VAR2 = 156, LANGTAG = 157, INTEGER = 158, DECIMAL = 159, DOUBLE = 160, 
-    INTEGER_POSITIVE = 161, DECIMAL_POSITIVE = 162, DOUBLE_POSITIVE = 163, 
-    INTEGER_NEGATIVE = 164, DECIMAL_NEGATIVE = 165, DOUBLE_NEGATIVE = 166, 
-    EXPONENT = 167, STRING_LITERAL1 = 168, STRING_LITERAL2 = 169, STRING_LITERAL_LONG1 = 170, 
-    STRING_LITERAL_LONG2 = 171, ECHAR = 172, NIL = 173, WS = 174, ANON = 175, 
-    PN_CHARS_BASE = 176, PN_CHARS_U = 177, VARNAME = 178, PN_CHARS = 179, 
-    PN_PREFIX = 180, PN_LOCAL = 181, PLX = 182, PERCENT = 183, HEX = 184, 
-    PN_LOCAL_ESC = 185
+    K_PPR = 140, K_TRIANGLECOUNTING = 141, K_CLOSENESSCENTRALITY = 142, 
+    K_BFSCOUNT = 143, K_PR = 144, K_ALPHA = 145, K_MAXITER = 146, K_TOL = 147, 
+    K_SSSP = 148, K_SSSPLEN = 149, K_LABELPROP = 150, K_WCC = 151, K_CLUSTERCOEFF = 152, 
+    K_MAXIMUMCLIQUE = 153, K_PFN = 154, KK_INSERTDATA = 155, KK_DELETEDATA = 156, 
+    KK_DELETEWHERE = 157, KK_ENCODE_FOR_URI = 158, KK_MD5 = 159, KK_SHA1 = 160, 
+    KK_SHA256 = 161, KK_SHA384 = 162, KK_SHA512 = 163, KK_GROUP_CONCAT = 164, 
+    IRIREF = 165, PNAME_NS = 166, PNAME_LN = 167, BLANK_NODE_LABEL = 168, 
+    VAR1 = 169, VAR2 = 170, LANGTAG = 171, INTEGER = 172, DECIMAL = 173, 
+    DOUBLE = 174, INTEGER_POSITIVE = 175, DECIMAL_POSITIVE = 176, DOUBLE_POSITIVE = 177, 
+    INTEGER_NEGATIVE = 178, DECIMAL_NEGATIVE = 179, DOUBLE_NEGATIVE = 180, 
+    EXPONENT = 181, STRING_LITERAL1 = 182, STRING_LITERAL2 = 183, STRING_LITERAL_LONG1 = 184, 
+    STRING_LITERAL_LONG2 = 185, ECHAR = 186, NIL = 187, WS = 188, ANON = 189, 
+    PN_CHARS_BASE = 190, PN_CHARS_U = 191, VARNAME = 192, PN_CHARS = 193, 
+    PN_PREFIX = 194, PN_LOCAL = 195, PLX = 196, PERCENT = 197, HEX = 198, 
+    PN_LOCAL_ESC = 199, COMMENT = 200
   };
 
   enum {
@@ -84,21 +87,21 @@ public:
     RulePathNegatedPropertySet = 98, RulePathOneInPropertySet = 99, RuleTriplesNode = 100, 
     RuleBlankNodepropertyList = 101, RuleTriplesNodepath = 102, RuleBlankNodepropertyListpath = 103, 
     RuleCollection = 104, RuleCollectionpath = 105, RuleGraphNode = 106, 
-    RuleGraphNodepath = 107, RuleVarOrTerm = 108, RuleVarOrIri = 109, RuleVar = 110, 
-    RuleGraphTerm = 111, RuleExpression = 112, RuleConditionalOrexpression = 113, 
-    RuleConditionalAndexpression = 114, RuleValueLogical = 115, RuleRelationalexpression = 116, 
-    RuleNumericexpression = 117, RuleAdditiveexpression = 118, RuleMultiplicativeexpression = 119, 
-    RuleUnaryexpression = 120, RulePrimaryexpression = 121, RuleBrackettedexpression = 122, 
-    RulePredSet = 123, RuleBuiltInCall = 124, RuleRegexexpression = 125, 
-    RuleSubstringexpression = 126, RuleStrReplaceexpression = 127, RuleExistsFunc = 128, 
-    RuleNotexistsFunc = 129, RuleAggregate = 130, RuleIriOrFunction = 131, 
-    RuleRDFLiteral = 132, RuleNumericLiteral = 133, RuleNumericLiteralUnsigned = 134, 
-    RuleNumericLiteralPositive = 135, RuleNumericLiteralNegative = 136, 
-    RuleNum_integer = 137, RuleNum_decimal = 138, RuleNum_double = 139, 
-    RuleInteger_positive = 140, RuleDecimal_positive = 141, RuleDouble_positive = 142, 
-    RuleInteger_negative = 143, RuleDecimal_negative = 144, RuleDouble_negative = 145, 
-    RuleBooleanLiteral = 146, RuleString = 147, RuleIri = 148, RulePrefixedName = 149, 
-    RuleBlankNode = 150
+    RuleGraphNodepath = 107, RuleVarOrTerm = 108, RuleVarOrIri = 109, RuleVarOrIriSet = 110, 
+    RuleVar = 111, RuleGraphTerm = 112, RuleExpression = 113, RuleConditionalOrexpression = 114, 
+    RuleConditionalAndexpression = 115, RuleValueLogical = 116, RuleRelationalexpression = 117, 
+    RuleNumericexpression = 118, RuleAdditiveexpression = 119, RuleMultiplicativeexpression = 120, 
+    RuleUnaryexpression = 121, RulePrimaryexpression = 122, RuleBrackettedexpression = 123, 
+    RulePredSet = 124, RuleBuiltInCall = 125, RuleRegexexpression = 126, 
+    RuleSubstringexpression = 127, RuleStrReplaceexpression = 128, RuleExistsFunc = 129, 
+    RuleNotexistsFunc = 130, RuleAggregate = 131, RuleIriOrFunction = 132, 
+    RuleRDFLiteral = 133, RuleNumericLiteral = 134, RuleNumericLiteralUnsigned = 135, 
+    RuleNumericLiteralPositive = 136, RuleNumericLiteralNegative = 137, 
+    RuleNum_integer = 138, RuleNum_decimal = 139, RuleNum_double = 140, 
+    RuleInteger_positive = 141, RuleDecimal_positive = 142, RuleDouble_positive = 143, 
+    RuleInteger_negative = 144, RuleDecimal_negative = 145, RuleDouble_negative = 146, 
+    RuleBooleanLiteral = 147, RuleString = 148, RuleIri = 149, RulePrefixedName = 150, 
+    RuleBlankNode = 151
   };
 
   SPARQLParser(antlr4::TokenStream *input);
@@ -221,6 +224,7 @@ public:
   class GraphNodepathContext;
   class VarOrTermContext;
   class VarOrIriContext;
+  class VarOrIriSetContext;
   class VarContext;
   class GraphTermContext;
   class ExpressionContext;
@@ -2122,6 +2126,22 @@ public:
 
   VarOrIriContext* varOrIri();
 
+  class  VarOrIriSetContext : public antlr4::ParserRuleContext {
+  public:
+    VarOrIriSetContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    std::vector<VarOrIriContext *> varOrIri();
+    VarOrIriContext* varOrIri(size_t i);
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  VarOrIriSetContext* varOrIriSet();
+
   class  VarContext : public antlr4::ParserRuleContext {
   public:
     VarContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -2438,10 +2458,27 @@ public:
     Num_integerContext* num_integer(size_t i);
     Integer_positiveContext *integer_positive();
     Integer_negativeContext *integer_negative();
-    NumericLiteralContext *numericLiteral();
     antlr4::tree::TerminalNode *K_KHOPENUMERATE();
     antlr4::tree::TerminalNode *K_KHOPREACHABLEPATH();
     antlr4::tree::TerminalNode *K_PPR();
+    antlr4::tree::TerminalNode *K_TRIANGLECOUNTING();
+    antlr4::tree::TerminalNode *K_CLOSENESSCENTRALITY();
+    antlr4::tree::TerminalNode *K_BFSCOUNT();
+    antlr4::tree::TerminalNode *K_PR();
+    antlr4::tree::TerminalNode *K_ALPHA();
+    std::vector<NumericLiteralContext *> numericLiteral();
+    NumericLiteralContext* numericLiteral(size_t i);
+    antlr4::tree::TerminalNode *K_MAXITER();
+    antlr4::tree::TerminalNode *K_TOL();
+    antlr4::tree::TerminalNode *K_SSSP();
+    antlr4::tree::TerminalNode *K_SSSPLEN();
+    antlr4::tree::TerminalNode *K_LABELPROP();
+    antlr4::tree::TerminalNode *K_WCC();
+    antlr4::tree::TerminalNode *K_CLUSTERCOEFF();
+    antlr4::tree::TerminalNode *K_MAXIMUMCLIQUE();
+    antlr4::tree::TerminalNode *K_PFN();
+    VarOrIriSetContext *varOrIriSet();
+    StringContext *string();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;

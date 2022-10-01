@@ -108,8 +108,26 @@ void QueryParser::printQueryTree()
 }
 
 /**
+	queryUnit : query ;
+	Visit node queryUnit: recursively call visit on its only child node query.
+	(Redundant, can be removed without affecting QueryParser's function)
+
+	@param ctx pointer to queryUnit's context.
+	@return a dummy antlrcpp::Any object.
+*/
+antlrcpp::Any QueryParser::visitQueryUnit(SPARQLParser::QueryUnitContext *ctx)
+{
+	// printNode(ctx, "queryUnit");
+
+	visit(ctx->query());
+
+	return antlrcpp::Any();
+}
+
+/**
 	query : prologue( selectquery | constructquery | describequery | askquery )valuesClause ;
 	Visit node query: recursively call visit on each of its children.
+	(Redundant, can be removed without affecting QueryParser's function)
 
 	@param ctx pointer to query's context.
 	@return a dummy antlrcpp::Any object.
@@ -177,6 +195,10 @@ antlrcpp::Any QueryParser::visitAskquery(SPARQLParser::AskqueryContext *ctx)
 {
 	query_tree_ptr->setQueryForm(QueryTree::Ask_Query);
 	query_tree_ptr->setProjectionAsterisk();
+
+	// Add DISTINCT and LIMIT 1 to speed up query execution
+	query_tree_ptr->setProjectionModifier(QueryTree::Modifier_Distinct);
+	query_tree_ptr->setLimit(1);
 
 	// datasetClause not supported
 
@@ -314,7 +336,7 @@ void QueryParser::parseSelectAggregateFunction(SPARQLParser::ExpressionContext *
 		conditionalAndexpression(0)->valueLogical(0)->relationalexpression()-> \
 		numericexpression(0)->additiveexpression()->multiplicativeexpression(0)-> \
 		unaryexpression(0)->primaryexpression();
-	SPARQLParser::BuiltInCallContext *bicCtx;
+	SPARQLParser::BuiltInCallContext *bicCtx = NULL;
 	if (prmCtx)
 		bicCtx = prmCtx->builtInCall();
 	if (bicCtx)
@@ -334,7 +356,7 @@ void QueryParser::parseSelectAggregateFunction(SPARQLParser::ExpressionContext *
 		{
 			string tmp = aggCtx->children[0]->getText();
 			transform(tmp.begin(), tmp.end(), tmp.begin(), ::toupper);
-			if (tmp != "COUNT" && tmp != "MIN" && tmp != "MAX" && tmp != "AVG" && tmp != "SUM")
+			if (tmp != "COUNT" && tmp != "MIN" && tmp != "MAX" && tmp != "AVG" && tmp != "SUM" && tmp != "GROUP_CONCAT")
 				throw runtime_error("[ERROR] The supported aggregate function now is COUNT, MIN, MAX, AVG, SUM only");
 
 			query_tree_ptr->addProjectionVar();
@@ -349,7 +371,33 @@ void QueryParser::parseSelectAggregateFunction(SPARQLParser::ExpressionContext *
 				proj_var.aggregate_type = QueryTree::ProjectionVar::Avg_type;
 			else if (tmp == "SUM")
 				proj_var.aggregate_type = QueryTree::ProjectionVar::Sum_type;
-			proj_var.aggregate_var = aggCtx->expression()->getText();	// Error would have been dealt with
+			else if (tmp == "GROUP_CONCAT")
+			{
+				proj_var.aggregate_type = QueryTree::ProjectionVar::Groupconcat_type;
+				if (aggCtx->string())
+					proj_var.separator = aggCtx->string()->getText();
+				if (proj_var.separator[0] == '\'')
+				{
+					if (proj_var.separator.length() > 6 && proj_var.separator[1] == '\'' && proj_var.separator[2] == '\'')
+						proj_var.separator = proj_var.separator.substr(3, proj_var.separator.length() - 6);
+					else
+						proj_var.separator = proj_var.separator.substr(1, proj_var.separator.length() - 2);
+				}
+				else if (proj_var.separator[0] == '\"')
+				{
+					if (proj_var.separator.length() > 6 && proj_var.separator[1] == '\"' && proj_var.separator[2] == '\"')
+						proj_var.separator = proj_var.separator.substr(3, proj_var.separator.length() - 6);
+					else
+						proj_var.separator = proj_var.separator.substr(1, proj_var.separator.length() - 2);
+				}
+				else
+					proj_var.separator = " ";
+			}
+			// TODO: can only handle aggregates on var for now
+			if (aggCtx->expression())
+				proj_var.aggregate_var = aggCtx->expression()->getText();	// Error would have been dealt with
+			else
+				proj_var.aggregate_var = "*";
 			tmp = aggCtx->children[2]->getText();
 			transform(tmp.begin(), tmp.end(), tmp.begin(), ::toupper);
 			proj_var.distinct = aggCtx->children[2]->children.size() == 0 && tmp == "DISTINCT";
@@ -363,7 +411,8 @@ void QueryParser::parseSelectAggregateFunction(SPARQLParser::ExpressionContext *
 				|| tmp == "CYCLEPATH" || tmp == "CYCLEBOOLEAN" \
 				|| tmp == "SHORTESTPATH" || tmp == "SHORTESTPATHLEN" \
 				|| tmp == "KHOPREACHABLE" || tmp == "KHOPENUMERATE" || tmp == "KHOPREACHABLEPATH" \
-				|| tmp == "PPR")	// Path calls
+				|| tmp == "PPR" || tmp == "TRIANGLECOUNTING" || tmp == "CLOSENESSCENTRALITY" \
+				|| tmp == "BFSCOUNT")	// Path calls
 			{
 				query_tree_ptr->addProjectionVar();
 				QueryTree::ProjectionVar &proj_var = query_tree_ptr->getLastProjectionVar();
@@ -388,20 +437,44 @@ void QueryParser::parseSelectAggregateFunction(SPARQLParser::ExpressionContext *
 					proj_var.aggregate_type = QueryTree::ProjectionVar::kHopReachablePath_type;
 				else if (tmp == "PPR")
 					proj_var.aggregate_type = QueryTree::ProjectionVar::ppr_type;
+				else if (tmp == "TRIANGLECOUNTING")
+					proj_var.aggregate_type = QueryTree::ProjectionVar::triangleCounting_type;
+				else if (tmp == "CLOSENESSCENTRALITY")
+					proj_var.aggregate_type = QueryTree::ProjectionVar::closenessCentrality_type;
+				else if (tmp == "BFSCOUNT")
+					proj_var.aggregate_type = QueryTree::ProjectionVar::bfsCount_type;
 
-				proj_var.path_args.src = bicCtx->varOrIri(0)->getText();
-				replacePrefix(proj_var.path_args.src);
-				if (tmp != "PPR")
+				// proj_var.path_args.src = bicCtx->varOrIri(0)->getText();
+				// replacePrefix(proj_var.path_args.src);
+				// if (tmp != "PPR")
+				// {
+				// 	proj_var.path_args.dst = bicCtx->varOrIri(1)->getText();
+				// 	replacePrefix(proj_var.path_args.dst);
+				// }
+				if (bicCtx->varOrIri().size() >= 1)
 				{
-					proj_var.path_args.dst = bicCtx->varOrIri(1)->getText();
-					replacePrefix(proj_var.path_args.dst);
+					proj_var.path_args.src = bicCtx->varOrIri(0)->getText();
+					replacePrefix(proj_var.path_args.src);
+					if (bicCtx->varOrIri().size() >= 2)
+					{
+						proj_var.path_args.dst = bicCtx->varOrIri(1)->getText();
+						replacePrefix(proj_var.path_args.dst);
+					}
 				}
-				auto predSet = bicCtx->predSet()->iri();
-				for (auto pred : predSet)
+				for (auto voi : bicCtx->varOrIri())
 				{
-					string prefixedPred = pred->getText();
-					replacePrefix(prefixedPred);
-					proj_var.path_args.pred_set.push_back(prefixedPred);
+					proj_var.path_args.vert_set.push_back(voi->getText());
+					replacePrefix(proj_var.path_args.vert_set.back());
+				}
+				if (bicCtx->predSet())
+				{
+					auto predSet = bicCtx->predSet()->iri();
+					for (auto pred : predSet)
+					{
+						string prefixedPred = pred->getText();
+						replacePrefix(prefixedPred);
+						proj_var.path_args.pred_set.push_back(prefixedPred);
+					}
 				}
 
 				if (tmp == "KHOPREACHABLE" || tmp == "KHOPENUMERATE" || tmp == "KHOPREACHABLEPATH" \
@@ -426,8 +499,8 @@ void QueryParser::parseSelectAggregateFunction(SPARQLParser::ExpressionContext *
 							proj_var.path_args.retNum = stoi(getTextWithRange(bicCtx->num_integer(1)));
 					}
 
-					if (bicCtx->numericLiteral())
-						proj_var.path_args.confidence = stof(bicCtx->numericLiteral()->getText());
+					if (!(bicCtx->numericLiteral()).empty())
+						proj_var.path_args.confidence = stof(bicCtx->numericLiteral(0)->getText());
 					else
 						proj_var.path_args.confidence = 1;
 				}
@@ -442,6 +515,57 @@ void QueryParser::parseSelectAggregateFunction(SPARQLParser::ExpressionContext *
 
 				proj_var.var = varCtx->getText();
 				
+			}
+			else if (tmp == "PFN") //Personalized Function
+			{
+				query_tree_ptr->addProjectionVar();
+				QueryTree::ProjectionVar &proj_var = query_tree_ptr->getLastProjectionVar();
+				proj_var.aggregate_type = QueryTree::ProjectionVar::PFN_type;
+				// set iri_set
+				auto iriSet = bicCtx->varOrIriSet()->varOrIri();
+				for (auto iri : iriSet)
+				{
+					string prefixedIri = iri->getText();
+					replacePrefix(prefixedIri);
+					proj_var.path_args.iri_set.push_back(prefixedIri);
+				}
+				// set src and dst when iri_set size is two 
+				if (proj_var.path_args.iri_set.size() == 2)
+				{
+					proj_var.path_args.src = proj_var.path_args.iri_set[0];
+					proj_var.path_args.dst = proj_var.path_args.iri_set[1];
+				}
+				
+				// set pred_set
+				auto predSet = bicCtx->predSet()->iri();
+				for (auto pred : predSet)
+				{
+					string prefixedPred = pred->getText();
+					replacePrefix(prefixedPred);
+					proj_var.path_args.pred_set.push_back(prefixedPred);
+				}
+				// set k
+				if (bicCtx->integer_positive())
+				{
+					proj_var.path_args.k = stoi(getTextWithRange(bicCtx->integer_positive()));
+				}
+				else if (bicCtx->integer_negative())
+				{
+					proj_var.path_args.k = stoi(getTextWithRange(bicCtx->integer_negative()));
+				}
+				else
+				{
+					proj_var.path_args.k = stoi(getTextWithRange(bicCtx->num_integer(0)));
+				}
+				// set directed
+				if (bicCtx->booleanLiteral()->getText() == "true")
+					proj_var.path_args.directed = true;
+				else
+					proj_var.path_args.directed = false;
+				// set fun_name
+				proj_var.path_args.fun_name = bicCtx->string()->getText();
+				proj_var.var = varCtx->getText();
+				cout<< "PFN fun_name: " << proj_var.path_args.fun_name << endl;
 			}
 			else if (tmp == "CONTAINS")	// Original built-in calls, may add others later
 			{
@@ -646,7 +770,8 @@ void QueryParser::buildCompTree(antlr4::tree::ParseTree *root, int oper_pos, Que
 				&& funcName != "KHOPREACHABLE" && funcName != "DATATYPE" && funcName != "CONTAINS" \
 				&& funcName != "UCASE" && funcName != "LCASE" && funcName != "STRSTARTS" \
 				&& funcName != "NOW" && funcName != "YEAR" && funcName != "MONTH" \
-				&& funcName != "DAY" && funcName != "ABS" && funcName != "REGEX")
+				&& funcName != "DAY" && funcName != "HOURS" && funcName != "MINUTES" \
+				&& funcName != "ABS" && funcName != "REGEX" && funcName != "IF")
 				throw runtime_error("[ERROR] Filter currently does not support this built-in call.");
 			curr_node.oprt = funcName;
 			if (funcName == "BOUND")
@@ -675,7 +800,7 @@ void QueryParser::buildCompTree(antlr4::tree::ParseTree *root, int oper_pos, Que
 					(curr_node.path_args).k = \
 						stoi(((SPARQLParser::BuiltInCallContext *)root)->num_integer(0)->getText());
 					(curr_node.path_args).confidence = \
-						stof(((SPARQLParser::BuiltInCallContext *)root)->numericLiteral()->getText());
+						stof(((SPARQLParser::BuiltInCallContext *)root)->numericLiteral(0)->getText());
 				}
 				if (((SPARQLParser::BuiltInCallContext *)root)->booleanLiteral()->getText() == "true")
 					(curr_node.path_args).directed = true;
@@ -741,6 +866,9 @@ antlrcpp::Any QueryParser::visitGroupGraphPattern(SPARQLParser::GroupGraphPatter
 antlrcpp::Any QueryParser::visitGroupGraphPatternSub(SPARQLParser::GroupGraphPatternSubContext *ctx, \
 	QueryTree::GroupPattern &group_pattern)
 {
+	if (firstVisitGroupGraphPatternSub && ctx->graphPatternTriplesBlock().empty())
+		query_tree_ptr->setSingleBGP(true);
+	firstVisitGroupGraphPatternSub = false;
 	if (ctx->triplesBlock())
 		visitTriplesBlock(ctx->triplesBlock(), group_pattern);
 	for (auto graphPatternTriplesBlock : ctx->graphPatternTriplesBlock())
@@ -900,336 +1028,6 @@ antlrcpp::Any QueryParser::visitFilter(SPARQLParser::FilterContext *ctx, \
 }
 
 /**
-	Construct FilterTree by DFS on FILTER's constraint.
-
-	@param root pointer to the root of the sub-constraint-tree.
-	@param currChild pointer to the current FilterTreeChild (NULL if at the root of 
-	the FilterTree; the parameter filter is needed because of this).
-	@param filter reference to the current FilterTreeNode (attribute of the current 
-	FilterTreeChild except when at the root of the FilterTree).
-	@param tp type of the current level of constraint (see grammar).
-*/
-void QueryParser::buildFilterTree(antlr4::tree::ParseTree *root, \
-	QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild *currChild, \
-	QueryTree::GroupPattern::FilterTree::FilterTreeNode &filter, string tp)
-{
-	string tmp;
-
-	// Passing argument like so loses type info; therefore needs string tp
-	if (tp == "conditionalOrexpression")
-	{
-		if (root->children.size() == 1)
-			buildFilterTree(((SPARQLParser::ConditionalOrexpressionContext *)root)->conditionalAndexpression(0), \
-				currChild, filter, "conditionalAndexpression");
-		else
-		{
-			filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Or_type;
-			if (currChild)
-				currChild->node_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild::Tree_type;
-
-			int numChild = 0;
-			for (auto conditionalAndexpression : \
-				((SPARQLParser::ConditionalOrexpressionContext *)root)->conditionalAndexpression())
-			{
-				filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-				buildFilterTree(conditionalAndexpression, &(filter.child[numChild]), \
-					filter.child[numChild].node, "conditionalAndexpression");
-				numChild++;
-			}
-		}
-	}
-	else if (tp == "conditionalAndexpression")
-	{
-		if (root->children.size() == 1)
-			buildFilterTree(((SPARQLParser::ConditionalAndexpressionContext *)root) \
-				->valueLogical(0)->relationalexpression(), currChild, filter, "relationalexpression");
-		else
-		{
-			filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::And_type;
-			if (currChild)
-				currChild->node_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild::Tree_type;
-
-			int numChild = 0;
-			for (auto valueLogical : \
-				((SPARQLParser::ConditionalAndexpressionContext *)root)->valueLogical())
-			{
-				filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-				buildFilterTree(valueLogical->relationalexpression(), &(filter.child[numChild]), \
-					filter.child[numChild].node, "relationalexpression");
-				numChild++;
-			}
-		}
-	}
-	else if (tp == "relationalexpression")
-	{
-		if (root->children.size() == 1)
-			buildFilterTree(((SPARQLParser::RelationalexpressionContext *)root)->numericexpression(0), \
-				currChild, filter, "numericexpression");
-		else
-		{
-			string op = root->children[1]->getText();
-			transform(op.begin(), op.end(), op.begin(), ::toupper);
-			if (op == "=")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Equal_type;
-			else if (op == "!=")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::NotEqual_type;
-			else if (op == "<")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Less_type;
-			else if (op == ">")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Greater_type;
-			else if (op == "<=")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::LessOrEqual_type;
-			else if (op == ">=")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::GreaterOrEqual_type;
-			else if (op == "IN")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_in_type;
-			else if (op == "NOT")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Not_type;
-
-			if (currChild)
-				currChild->node_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild::Tree_type;
-
-			tmp = root->children[1]->getText();
-			transform(tmp.begin(), tmp.end(), tmp.begin(), ::toupper);
-			if (tmp == "NOT")	// NOT IN
-			{
-				filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-				filter.child[0].node_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild::Tree_type;
-				filter.child[0].node.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_in_type;
-				
-				filter = filter.child[0].node;
-				int numChild = 0;
-				for (auto expression : \
-					((SPARQLParser::RelationalexpressionContext *)root)->expressionList()->expression())
-				{
-					filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-					buildFilterTree(expression->conditionalOrexpression(), &(filter.child[numChild]), \
-						filter.child[numChild].node, "conditionalOrexpression");
-					numChild++;
-				}
-			}
-			else if (tmp == "IN")	// IN
-			{
-				int numChild = 0;
-				for (auto expression : \
-					((SPARQLParser::RelationalexpressionContext *)root)->expressionList()->expression())
-				{
-					filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-					buildFilterTree(expression->conditionalOrexpression(), &(filter.child[numChild]), \
-						filter.child[numChild].node, "conditionalOrexpression");
-					numChild++;
-				}
-			}
-			else
-			{
-				int numChild = 0;
-				for (auto numericexpression : \
-					((SPARQLParser::RelationalexpressionContext *)root)->numericexpression())
-				{
-					filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-					buildFilterTree(numericexpression, &(filter.child[numChild]), \
-						filter.child[numChild].node, "numericexpression");
-					numChild++;
-				}
-			}
-		}
-	}
-	else if (tp == "numericexpression")
-	{
-		if (((SPARQLParser::NumericexpressionContext *)root)->additiveexpression()->children.size() > 1
-			|| ((SPARQLParser::NumericexpressionContext *)root)->additiveexpression() \
-			->multiplicativeexpression(0)->children.size() > 1)
-			throw runtime_error("[ERROR]	Filter currently does not support numeric computation.");
-		auto unaryexpression = ((SPARQLParser::NumericexpressionContext *)root)-> \
-			additiveexpression()->multiplicativeexpression(0)->unaryexpression(0);
-		buildFilterTree(unaryexpression, currChild, filter, "unaryexpression");
-	}
-	else if (tp == "unaryexpression")
-	{
-		if (root->children.size() == 2)
-		{
-			if (root->children[0]->getText() == "!")
-			{
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Not_type;
-				if (currChild)
-					currChild->node_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild::Tree_type;
-				filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-				buildFilterTree(((SPARQLParser::UnaryexpressionContext *)root)->primaryexpression(), \
-					&(filter.child[0]), filter.child[0].node, "primaryexpression");
-			}
-			else
-				throw runtime_error("[ERROR]	Filter currently does not support numeric computation.");
-		}
-		else
-			buildFilterTree(((SPARQLParser::UnaryexpressionContext *)root)->primaryexpression(), \
-				currChild, filter, "primaryexpression");
-	}
-	else if (tp == "primaryexpression")
-	{
-		if (((SPARQLParser::PrimaryexpressionContext *)root)->brackettedexpression())
-			buildFilterTree(((SPARQLParser::PrimaryexpressionContext *)root)->brackettedexpression()-> \
-				expression()->conditionalOrexpression(), currChild, filter, "conditionalOrexpression");
-		else if (((SPARQLParser::PrimaryexpressionContext *)root)->builtInCall())
-			buildFilterTree(((SPARQLParser::PrimaryexpressionContext *)root)->builtInCall(), \
-				currChild, filter, "builtInCall");
-		else if (((SPARQLParser::PrimaryexpressionContext *)root)->iriOrFunction() \
-			&& ((SPARQLParser::PrimaryexpressionContext *)root)->iriOrFunction()->argList())
-			throw runtime_error("[ERROR]	Filter currently does not support custom function call.");
-		else	// rDFLiteral | numericLiteral | booleanLiteral | var | iri (w/o ArgList)
-		{
-			if (currChild)	// This SHOULD hold true, unless someone only writes one var or literal 
-				// inside brackets to constitute brackettedexpression, which is meaningless
-			{
-				currChild->node_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild::String_type;
-				
-				if (((SPARQLParser::PrimaryexpressionContext *)root)->rDFLiteral())
-					currChild->str = getTextWithRange(root);
-				else if (((SPARQLParser::PrimaryexpressionContext *)root)->numericLiteral())
-				{
-					auto numericLiteral = ((SPARQLParser::PrimaryexpressionContext *)root)->numericLiteral();
-					currChild->str = getNumeric(numericLiteral);
-				}
-				else if (((SPARQLParser::PrimaryexpressionContext *)root)->booleanLiteral())
-					currChild->str = "\"" + root->getText() + "\"" + "^^<http://www.w3.org/2001/XMLSchema#boolean>";
-				else if (((SPARQLParser::PrimaryexpressionContext *)root)->var() \
-					|| ((SPARQLParser::PrimaryexpressionContext *)root)->iriOrFunction())
-					currChild->str = root->getText();
-				
-				replacePrefix(currChild->str);
-			}
-		}
-	}
-	else if (tp == "builtInCall")
-	{
-		if (((SPARQLParser::BuiltInCallContext *)root)->regexexpression())
-		{
-			filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_regex_type;
-			if (currChild)
-				currChild->node_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild::Tree_type;
-			
-			int numChild = 0;
-			for (auto expression : \
-				((SPARQLParser::BuiltInCallContext *)root)->regexexpression()->expression())
-			{
-				filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-				buildFilterTree(expression->conditionalOrexpression(), &(filter.child[numChild]), \
-					filter.child[numChild].node, "conditionalOrexpression");
-				numChild++;
-			}
-		}
-		else if (root->children[0]->children.size() == 0)
-		{
-			string funcName = root->children[0]->getText();
-			transform(funcName.begin(), funcName.end(), funcName.begin(), ::toupper);
-			if (funcName == "STR")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_str_type;
-			else if (funcName == "ISIRI")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_isiri_type;
-			else if (funcName == "ISURI")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_isuri_type;
-			else if (funcName == "ISLITERAL")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_isliteral_type;
-			else if (funcName == "ISNUMERIC")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_isnumeric_type;
-			else if (funcName == "LANG")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_lang_type;
-			else if (funcName == "LANGMATCHES")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_langmatches_type;
-			else if (funcName == "BOUND")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_bound_type;
-			else if (funcName == "SIMPLECYCLEBOOLEAN")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_simpleCycle_type;
-			else if (funcName == "CYCLEBOOLEAN")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_cycle_type;
-			else if (funcName == "SHORTESTPATHLEN")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_sp_type;
-			else if (funcName == "KHOPREACHABLE")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_khop_type;
-			
-			else if (funcName == "DATATYPE")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_datatype_type;
-			else if (funcName == "CONTAINS")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_contains_type;
-			else if (funcName == "UCASE")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_ucase_type;
-			else if (funcName == "LCASE")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_lcase_type;
-			else if (funcName == "STRSTARTS")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_strstarts_type;
-			else if (funcName == "NOW")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_now_type;
-			else if (funcName == "YEAR")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_year_type;
-			else if (funcName == "MONTH")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_month_type;
-			else if (funcName == "DAY")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_day_type;
-			else if (funcName == "ABS")
-				filter.oper_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::Builtin_abs_type;
-			else
-				throw runtime_error("[ERROR] Filter currently does not support this built-in call.");
-
-			if (currChild)
-				currChild->node_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild::Tree_type;
-
-			tmp = root->children[0]->getText();
-			transform(tmp.begin(), tmp.end(), tmp.begin(), ::toupper);
-			if (tmp == "BOUND")
-			{
-				filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-				filter.child[0].node_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild::String_type;
-				filter.child[0].str = ((SPARQLParser::BuiltInCallContext *)root)->var()->getText();
-				replacePrefix(filter.child[0].str);
-			}
-			else if (tmp == "SIMPLECYCLEBOOLEAN" || tmp == "CYCLEBOOLEAN" \
-				|| tmp == "SHORTESTPATHLEN" || tmp == "KHOPREACHABLE")
-			{
-				filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-				filter.child[0].node_type = QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild::String_type;
-				filter.child[0].path_args.src = ((SPARQLParser::BuiltInCallContext *)root)->varOrIri(0)->getText();
-				replacePrefix(filter.child[0].path_args.src);
-				filter.child[0].path_args.dst = ((SPARQLParser::BuiltInCallContext *)root)->varOrIri(1)->getText();
-				replacePrefix(filter.child[0].path_args.dst);
-				auto predSet = ((SPARQLParser::BuiltInCallContext *)root)->predSet()->iri();
-				for (auto pred : predSet)
-				{
-					string prefixedPred = pred->getText();
-					replacePrefix(prefixedPred);
-					filter.child[0].path_args.pred_set.push_back(prefixedPred);
-				}
-
-				if (tmp == "KHOPREACHABLE")
-				{
-					filter.child[0].path_args.k = \
-						stoi(((SPARQLParser::BuiltInCallContext *)root)->num_integer(0)->getText());
-					filter.child[0].path_args.confidence = \
-						stof(((SPARQLParser::BuiltInCallContext *)root)->numericLiteral()->getText());
-				}
-				if (((SPARQLParser::BuiltInCallContext *)root)->booleanLiteral()->getText() == "true")
-					filter.child[0].path_args.directed = true;
-				else
-					filter.child[0].path_args.directed = false;
-			}
-			else
-			{
-				int numChild = 0;
-				for (auto expression : ((SPARQLParser::BuiltInCallContext *)root)->expression())
-				{
-					filter.child.push_back(QueryTree::GroupPattern::FilterTree::FilterTreeNode::FilterTreeChild());
-					buildFilterTree(expression->conditionalOrexpression(), &(filter.child[numChild]), \
-						filter.child[numChild].node, "conditionalOrexpression");
-					numChild++;
-				}
-			}
-		}
-		else
-			throw runtime_error("[ERROR]	Filter currently does not support this built-in call.");
-	}
-	else
-		throw runtime_error("[ERROR]	Unaccounted for route when parsing filter.");
-}
-
-/**
 	bind : K_BIND '(' expression K_AS var ')' ;
 	Visit node bind: Add a BIND to group_pattern, and fill in the string and variable 
 	to be bound.
@@ -1241,27 +1039,14 @@ void QueryParser::buildFilterTree(antlr4::tree::ParseTree *root, \
 antlrcpp::Any QueryParser::visitBind(SPARQLParser::BindContext *ctx, \
 	QueryTree::GroupPattern &group_pattern)
 {
-	SPARQLParser::RDFLiteralContext *rdflCtx = ctx->expression()->conditionalOrexpression()-> \
-		conditionalAndexpression(0)->valueLogical(0)->relationalexpression()-> \
-		numericexpression(0)->additiveexpression()->multiplicativeexpression(0)-> \
-		unaryexpression(0)->primaryexpression()->rDFLiteral();
-	if (!rdflCtx)
-		throw runtime_error("[ERROR]	Currently BIND only supports assigning a string to a var.");
-	antlr4::tree::ParseTree *curr = ctx->expression();
-	for (int i = 0; i < 9; i++)
-	{
-		// Make sure only one children along the way
-		if (curr->children.size() > 1)
-			throw runtime_error("[ERROR]	Currently BIND only supports assigning a string to a var.");
-		curr = curr->children[0];
-	}
-
-	string str, var;
-	str = rdflCtx->string()->getText();
+	string var;
 	var = ctx->var()->getText();
 
 	group_pattern.addOneBind();
-	group_pattern.getLastBind() = QueryTree::GroupPattern::Bind(str, var);
+	group_pattern.getLastBind().var = var;
+	buildCompTree(ctx->expression()->conditionalOrexpression(), -1, group_pattern.getLastBind().bindExpr);
+
+	// TODO: check that the query var has not appeared previously
 
 	return antlrcpp::Any();
 }
@@ -1287,6 +1072,7 @@ antlrcpp::Any QueryParser::visitTriplesSameSubjectpath(SPARQLParser::TriplesSame
 	QueryTree::GroupPattern &group_pattern)
 {
 	string subject, predicate, object;
+	bool kleene = false;
 
 	subject = ctx->varOrTerm()->getText();
 	replacePrefix(subject);
@@ -1296,8 +1082,38 @@ antlrcpp::Any QueryParser::visitTriplesSameSubjectpath(SPARQLParser::TriplesSame
 	int numChild = propertyListpathNotEmpty->verbpathOrSimple().size();
 	for (int i = 0; i < numChild; i++)
 	{
+		// TODO: for property path, store additional information in Triple
+		// verbpathOrSimple : verbpath | verbSimple ;
+		// verbSimple : var ;
+		// verbpath : path ;
+		// path : pathAlternative ;
+		// pathAlternative : pathSequence ( '|' pathSequence )* ;
+		// pathSequence : pathEltOrInverse ( '/' pathEltOrInverse )* ;
+		// pathElt : pathPrimary pathMod? ;
+		// pathEltOrInverse : pathElt | '^' pathElt ;
+		// pathMod : '?' | '*' | '+' ;
+		// pathPrimary : iri | 'a' | '!' pathNegatedPropertySet | '(' path ')' ;
+		kleene = false;
 		auto verbpathOrSimple = propertyListpathNotEmpty->verbpathOrSimple(i);
-		predicate = verbpathOrSimple->getText();
+		if (verbpathOrSimple->verbpath())
+		{
+			auto pathMod = verbpathOrSimple->verbpath()->path()->pathAlternative()->pathSequence(0) \
+				->pathEltOrInverse(0)->pathElt()->pathMod();
+			auto pathPrimary = verbpathOrSimple->verbpath()->path()->pathAlternative()->pathSequence(0) \
+				->pathEltOrInverse(0)->pathElt()->pathPrimary();
+			if (pathMod && pathMod->getText() == "*" && (pathPrimary->iri() || pathPrimary->getText() == "a"))
+			{
+				kleene = true;
+				predicate = pathPrimary->getText();
+				// cout << "kleene true, predicate = " << predicate << endl;
+			}
+			else if (pathMod && pathMod->getText() != "*" || pathPrimary->pathNegatedPropertySet() || pathPrimary->path())
+				throw runtime_error("[ERROR]	Only support iri* as property path.");
+			else
+				predicate = verbpathOrSimple->getText();
+		}
+		else
+			predicate = verbpathOrSimple->getText();
 		if (predicate == "a")
 			predicate = "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>";
 		replacePrefix(predicate);
@@ -1317,7 +1133,7 @@ antlrcpp::Any QueryParser::visitTriplesSameSubjectpath(SPARQLParser::TriplesSame
 				else
 					object = getTextWithRange(objectpath);
 				replacePrefix(object);
-				addTriple(subject, predicate, object, group_pattern);
+				addTriple(subject, predicate, object, kleene, group_pattern);
 			}
 		}
 		else
@@ -1336,7 +1152,7 @@ antlrcpp::Any QueryParser::visitTriplesSameSubjectpath(SPARQLParser::TriplesSame
 				else
 					object = getTextWithRange(object_ptr);
 				replacePrefix(object);
-				addTriple(subject, predicate, object, group_pattern);
+				addTriple(subject, predicate, object, kleene, group_pattern);
 			}
 		}
 	}
@@ -1354,13 +1170,13 @@ antlrcpp::Any QueryParser::visitTriplesSameSubjectpath(SPARQLParser::TriplesSame
 	@param object object string.
 	@param group_pattern a group graph pattern.
 */
-void QueryParser::addTriple(string subject, string predicate, string object, \
+void QueryParser::addTriple(string subject, string predicate, string object, bool kleene, \
 	QueryTree::GroupPattern &group_pattern)
 {
 	// Add one pattern
 	group_pattern.addOnePattern(QueryTree::GroupPattern::Pattern(QueryTree::GroupPattern::Pattern::Element(subject), \
 		QueryTree::GroupPattern::Pattern::Element(predicate), \
-		QueryTree::GroupPattern::Pattern::Element(object)));
+		QueryTree::GroupPattern::Pattern::Element(object), kleene));
 
 	// Scope of filter
 	for (int j = (int)group_pattern.sub_group_pattern.size() - 1; j > 0; j--)
@@ -1620,9 +1436,9 @@ antlrcpp::Any QueryParser::visitTriplesSameSubject(SPARQLParser::TriplesSameSubj
 			if (query_tree_ptr->getUpdateType() == QueryTree::Delete_Data
 				|| query_tree_ptr->getUpdateType() == QueryTree::Delete_Where
 				|| query_tree_ptr->getUpdateType() == QueryTree::Delete_Clause)
-				addTriple(subject, predicate, object, group_pattern_delete);
+				addTriple(subject, predicate, object, false, group_pattern_delete);
 			else
-				addTriple(subject, predicate, object, group_pattern_insert);
+				addTriple(subject, predicate, object, false, group_pattern_insert);
 		}
 	}
 

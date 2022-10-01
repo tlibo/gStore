@@ -455,6 +455,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual antlrcpp::Any visitVarOrIriSet(SPARQLParser::VarOrIriSetContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual antlrcpp::Any visitVar(SPARQLParser::VarContext *ctx) override {
     return visitChildren(ctx);
   }

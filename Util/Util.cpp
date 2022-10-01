@@ -10,7 +10,6 @@
 
 #include "Util.h"
 
-
 using namespace std;
 using namespace rapidjson;
 //==================================================================================================================
@@ -22,11 +21,9 @@ string Util::profile = "init.conf";
 
 map<string, string> Util::global_config;
 pthread_rwlock_t backuplog_lock;
-pthread_rwlock_t transactionlog_lock;
+
 #define BACKUP_PATH "./backups"
 #define BACKUP_LOG_PATH "./backup.json"
-#define TRANSACTION_LOG_PATH "./logs/transaction.json"
-#define TRANSACTION_LOG_TEMP_PATH "./logs/transaction_temp.json"
 #define BACKUP_LOG_TMEP_PATH "./temp.json"
 #define DEFALUT_BACKUP_INTERVAL "600" //hour
 #define DEFALUT_BACKUP_TIMER "600" //hour
@@ -138,6 +135,7 @@ Util::configure()
 	Util::global_config["gstore_mode"] = "single";
 	//NOTICE+BETTER+TODO:use macro is better to avoid too many judging on this variable(add a DEBUG macro at the outer)
 	Util::global_config["debug_level"] = "simple";
+	Util::global_config["log_mode"] = "0";
 	Util::global_config["db_home"] = ".";
 	Util::global_config["db_suffix"] = ".db";
 	Util::global_config["buffer_maxium"] = "100";
@@ -212,45 +210,43 @@ Util::configure()
 	//return Util::config_setting() && Util::config_debug() && Util::config_advanced();
 }
 
-bool
-Util::config_debug()
-{
-    const unsigned len1 = 100;
-    const unsigned len2 = 505;
-	char AppName[] = "setting";
-    char KeyName[] = "mode";
-	char appname[len1], keyname[len1];
-    char KeyVal[len1];
-    char *buf, *c;
-    char buf_i[len1], buf_o[len1];
-    FILE *fp = NULL;
-    int status = 0; // 1 AppName 2 KeyName
-	return true;
-}
+// bool
+// Util::config_debug()
+// {
+//     const unsigned len1 = 100;
+    // const unsigned len2 = 505;
+	// char AppName[] = "setting";
+    // char KeyName[] = "mode";
+	// char appname[len1], keyname[len1];
+    // char KeyVal[len1];
+    // char *buf, *c;
+    // char buf_i[len1], buf_o[len1];
+    // FILE *fp = NULL;
+    // int status = 0; // 1 AppName 2 KeyName
+// 	return true;
+// }
 
-
-bool
-Util::config_advanced()
-{
-    const unsigned len1 = 100;
-    const unsigned len2 = 505;
-	char AppName[] = "setting";
-    char KeyName[] = "mode";
-	char appname[len1], keyname[len1];
-    char KeyVal[len1];
-    char *buf, *c;
-    char buf_i[len1], buf_o[len1];
-    FILE *fp = NULL;
-    int status = 0; // 1 AppName 2 KeyName
-	return true;
-}
+// bool
+// Util::config_advanced()
+// {
+//     const unsigned len1 = 100;
+    // const unsigned len2 = 505;
+	// char AppName[] = "setting";
+    // char KeyName[] = "mode";
+	// char appname[len1], keyname[len1];
+    // char KeyVal[len1];
+    // char *buf, *c;
+    // char buf_i[len1], buf_o[len1];
+    // FILE *fp = NULL;
+    // int status = 0; // 1 AppName 2 KeyName
+// 	return true;
+// }
 
 bool Util::setGlobalConfig(INIParser& parser, string rootname, string keyname)
 {
     string value = parser.GetValue(rootname, keyname);
-    //cout<<"the root name："<<rootname<<", the key name:"<<keyname<<",the value:"<<value<<endl;
     if(value.empty()==false)
-        Util::global_config[keyname] = value;
+        Util::global_config[keyname] = replace_all(value,"\"","");
     return true;
 }
 
@@ -259,9 +255,7 @@ string Util::getConfigureValue(string keyname)
     map<string, string>::iterator iter = Util::global_config.find(keyname);
 	if (iter != Util::global_config.end())
 	{
-        string value=iter->second;
-        value=Util::replace_all(value,"\"","");
-		    return value;
+		    return iter->second;
 	}
 	return "";
 }
@@ -272,45 +266,45 @@ bool Util::configure_new()
     ini_parser.ReadINI("conf.ini");
     /*string value=ini_parser.GetValue("ghttp", "max_out_limit");
     Util::global_config["max_out_limit"] = value;*/
-    
-    
+    Util::setGlobalConfig(ini_parser, "ghttp", "default_port");
     Util::setGlobalConfig(ini_parser, "ghttp", "thread_num");
-
-    cout << "the current settings are as below: " << endl;
-    cout << "key : value" << endl;
-    cout << "------------------------------------------------------------" << endl;
-    for (map<string, string>::iterator it = Util::global_config.begin(); it != Util::global_config.end(); ++it)
-    {
-        cout << it->first << " : " << it->second << endl;
-    }
-    cout << endl;
     Util::setGlobalConfig(ini_parser, "ghttp", "max_database_num");
     Util::setGlobalConfig(ini_parser, "ghttp", "max_user_num");
+    Util::setGlobalConfig(ini_parser, "ghttp", "max_output_size");
     Util::setGlobalConfig(ini_parser, "ghttp", "root_username");
     Util::setGlobalConfig(ini_parser, "ghttp", "root_password");
-    Util::setGlobalConfig(ini_parser, "ghttp", "system_path");
-    Util::setGlobalConfig(ini_parser, "ghttp", "querylog_path");
-    Util::setGlobalConfig(ini_parser, "ghttp", "max_querylog_size");
     Util::setGlobalConfig(ini_parser, "ghttp", "system_username");
-    Util::setGlobalConfig(ini_parser, "ghttp", "max_output_size");
+    Util::setGlobalConfig(ini_parser, "ghttp", "system_path");
     Util::setGlobalConfig(ini_parser, "ghttp", "db_path");
     Util::setGlobalConfig(ini_parser, "ghttp", "backup_path");
-
-    
-   // Util::setGlobalConfig(ini_parser, "ghttp", "ip");
+    Util::setGlobalConfig(ini_parser, "ghttp", "querylog_mode");
+    Util::setGlobalConfig(ini_parser, "ghttp", "querylog_path");
+    Util::setGlobalConfig(ini_parser, "ghttp", "accesslog_path");
+    Util::setGlobalConfig(ini_parser, "ghttp", "queryresult_log");
+    Util::setGlobalConfig(ini_parser, "ghttp", "queryresult_path");
+    Util::setGlobalConfig(ini_parser, "ghttp", "pfn_file_path");
+    Util::setGlobalConfig(ini_parser, "ghttp", "pfn_lib_path");
+    Util::setGlobalConfig(ini_parser, "ghttp", "ip");
     Util::setGlobalConfig(ini_parser, "ghttp", "ip_allow_path");
     Util::setGlobalConfig(ini_parser, "ghttp", "ip_deny_path");
-    Util::setGlobalConfig(ini_parser, "ghttp", "ip_access_log");
     Util::setGlobalConfig(ini_parser, "system", "version");
+    Util::setGlobalConfig(ini_parser, "system", "log_mode");
     Util::setGlobalConfig(ini_parser, "system", "licensetype");
-    // cout << "the current settings are as below: " << endl;
-    // cout << "key : value" << endl;
-    // cout << "------------------------------------------------------------" << endl;
-    // for (map<string, string>::iterator it = Util::global_config.begin(); it != Util::global_config.end(); ++it)
-    // {
-    //     cout << it->first << " : " << it->second << endl;
-    // }
-    // cout << endl;
+    
+    // init slog
+    string log_mode = Util::getConfigureValue("log_mode");
+    Slog::getInstance().init(log_mode.c_str());
+    if(Slog::getInstance()._logger.getLogLevel() == log4cplus::DEBUG_LOG_LEVEL)
+    {
+        SLOG_DEBUG("the current settings are as below: ");
+        SLOG_DEBUG("key : value");
+        SLOG_DEBUG("----------------------------------");
+        for (map<string, string>::iterator it = Util::global_config.begin(); it != Util::global_config.end(); ++it)
+        {
+            SLOG_DEBUG(it->first + " : " + it->second);
+        }
+        SLOG_DEBUG("----------------------------------");
+    }
     return true;
 }
 
@@ -699,53 +693,53 @@ Util::bsearch_int_uporder(unsigned _key, const unsigned* _array, unsigned _array
 	return INVALID;
 }
 
-bool
-Util::bsearch_preid_uporder(TYPE_PREDICATE_ID _preid, unsigned* _pair_idlist, unsigned _list_len)
-{
-    if(_list_len == 0)
-    {
-        return false;
-    }
-	//NOTICE: if list len > 0, then it must >= 2, so pair num >= 1
-    unsigned pair_num = _list_len / 2;
-    unsigned _first = _pair_idlist[2*0 + 0];
-    unsigned _last = _pair_idlist[2*(pair_num-1) + 0];
-
-    if(_preid == _last)
-    {
-        return true;
-    }
-
-    bool not_find = (_last < _preid || _first > _preid);
-    if(not_find)
-    {
-        return false;
-    }
-
-    unsigned low = 0;
-    unsigned high = pair_num - 1;
-    unsigned mid;
-
-    while(low <= high)
-    {
-        mid = (high - low) / 2 + low;
-        if(_pair_idlist[2*mid + 0] == _preid)
-        {
-            return true;
-        }
-
-        if(_pair_idlist[2*mid + 0] > _preid)
-        {
-            high = mid - 1;
-        } 
-		else
-        {
-            low = mid + 1;
-        }
-    }
-
-    return false;
-}
+// bool
+// Util::bsearch_preid_uporder(TYPE_PREDICATE_ID _preid, unsigned* _pair_idlist, unsigned _list_len)
+// {
+//     if(_list_len == 0)
+//     {
+//         return false;
+//     }
+// 	//NOTICE: if list len > 0, then it must >= 2, so pair num >= 1
+//     unsigned pair_num = _list_len / 2;
+//     unsigned _first = _pair_idlist[2*0 + 0];
+//     unsigned _last = _pair_idlist[2*(pair_num-1) + 0];
+//
+//     if(_preid == _last)
+//     {
+//         return true;
+//     }
+//
+//     bool not_find = (_last < _preid || _first > _preid);
+//     if(not_find)
+//     {
+//         return false;
+//     }
+//
+//     unsigned low = 0;
+//     unsigned high = pair_num - 1;
+//     unsigned mid;
+//
+//     while(low <= high)
+//     {
+//         mid = (high - low) / 2 + low;
+//         if(_pair_idlist[2*mid + 0] == _preid)
+//         {
+//             return true;
+//         }
+//
+//         if(_pair_idlist[2*mid + 0] > _preid)
+//         {
+//             high = mid - 1;
+//         }
+// 		else
+//         {
+//             low = mid + 1;
+//         }
+//     }
+//
+//     return false;
+// }
 
 unsigned
 Util::bsearch_vec_uporder(unsigned _key, const vector<unsigned>* _vec)
@@ -839,14 +833,42 @@ bool Util::file_exist(const string _file)
 }
 
 bool
-Util::create_dir(const  string _dir)
+Util::create_dir(const string _dir)
 {
     if(! Util::dir_exist(_dir))
     {
+        
         mkdir(_dir.c_str(), 0755);
         return true;
     }
 
+    return false;
+}
+
+bool
+Util::create_dirs(const string _dirs)
+{
+    if (! Util::dir_exist(_dirs))
+    {
+        char tmpDirPath[255] = {0};
+        size_t len = _dirs.length();
+        for (size_t i = 0; i < len; i++)
+        {
+            tmpDirPath[i] = _dirs[i];
+            if (tmpDirPath[i] == '/')
+            {
+                if (access(tmpDirPath, 0) != 0)
+                {
+                    mkdir(tmpDirPath, 755);
+                }
+            }
+        }
+        if (access(tmpDirPath, 0) != 0)
+        {
+            mkdir(tmpDirPath, 755);
+        }
+        return true;
+    }
     return false;
 }
 
@@ -876,7 +898,7 @@ Util::get_date_time()
 	return tmp;
 }
 
-string 
+string
 Util::get_date_day()
 {
 	time_t timep;
@@ -886,7 +908,7 @@ Util::get_date_day()
 	return tmp;
 }
 
-string 
+string
 Util::get_timestamp()
 {
     string timestamp;
@@ -1724,7 +1746,7 @@ Util::getTimeName()
 	time(&rawtime);
 	timeinfo = localtime(&rawtime);
 	string tempTime = asctime(timeinfo);
-	for(int i = 0; i < tempTime.length(); i++)
+	for(unsigned i = 0; i < tempTime.length(); i++)
 	{
 		if(tempTime[i] == ' ')
 			tempTime[i] = '_';
@@ -1742,17 +1764,6 @@ Util::getTimeString() {
 	strftime(time_str, max, "%Y%m%d %H:%M:%S", localtime(&timep));
 	return string(time_str);
 }
-
-string
-Util::getTimeString3() {
-	static const int max = 40; // max length of time string
-	char time_str[max];
-	time_t timep;
-	time(&timep);
-	strftime(time_str, max, "%Y-%m-%d %H:%M:%S", localtime(&timep));
-	return string(time_str);
-}
-
 
 string
 Util::getTimeString2() {
@@ -1774,38 +1785,40 @@ Util::getRandNum()
     return result;
 }
 
-bool Util::checkPort(int port)
+bool Util::checkPort(int port, std::string p_name)
 {
-    try
-    {
-       int ss=socket(AF_INET,SOCK_STREAM,0);
-       struct sockaddr_in addr;
-       addr.sin_family=AF_INET;
-       addr.sin_port=htons(port);
-       addr.sin_addr.s_addr=htonl(INADDR_ANY);
-       if(bind(ss,(struct sockaddr *)&addr,sizeof(addr))==-1)
-       {
-           close(ss);
-           return false;
-       }
-       else
-       {
-           close(ss);
-           return true;
-       }
-      
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-        return false;
-    }
-    catch(...)
-    {
-        std::cerr<<"port has been used."<<endl;
-        return false;
-    }
-    return false;
+    stringstream ss;
+	ss << port;
+	string str_port = ss.str();
+	string out_file = ".tmp/port_check";
+	string cmd = "netstat -ntlp |grep " + str_port + " > " + out_file;
+	system(cmd.c_str());
+	struct stat buffer;
+	bool file_exist = (stat(out_file.c_str(), &buffer) == 0);
+	if (!file_exist)
+	{
+		return true;
+	}
+	ifstream inputFile(out_file.c_str());
+	string line;
+	size_t idx;
+	str_port = ":" + str_port;
+	bool result = true;
+	while (getline(inputFile, line, '\n'))
+	{
+		idx = line.find(str_port);
+		if ((idx != string::npos) && line[idx + str_port.size()] == ' ')
+		{
+			if (p_name.empty())
+				result = false;
+			else if (line.find(p_name) == string::npos) // main process restart sub process
+				result = false;
+			break;
+		}
+	}
+	line = "rm -f " + out_file;
+	system(line.c_str());
+	return result;
 }
 
 //is ostream.write() ok to update to disk at once? all add ofstream.flush()?
@@ -2175,20 +2188,20 @@ Util::read_backup_time()
 std::string
 Util::replace_all(std::string _content,const std::string oldtext,const std::string newtext)
 {
-     while(true)   {     
-            string::size_type  pos(0);     
-            if(  (pos=_content.find(oldtext))!=string::npos  )     
-                _content.replace(pos,oldtext.length(),newtext);     
-            else   break;     
-        }     
-    return  _content;     
+     while(true)   {
+            string::size_type  pos(0);
+            if(  (pos=_content.find(oldtext))!=string::npos  )
+                _content.replace(pos,oldtext.length(),newtext);
+            else   break;
+        }
+    return  _content;
 }
 
 void
 Util::split(string str, string pattern, vector<string> &res){
     string::size_type pos = 0;
     str += pattern;
-    for(int i = 0; i < str.size(); i++)
+    for(int i = 0; i < static_cast<int>(str.size()); i++)
     {
         pos = str.find(pattern, i);
         if(pos < str.size()){
@@ -2226,7 +2239,7 @@ int
 Util::add_backuplog(string db_name)
 {
     if(db_name == "system"){
-        cout << "system can not be duplicated" << endl;
+        SLOG_ERROR("system can not be duplicated");
         return -1;
     }
     if(has_record_backuplog(db_name)) return 1;
@@ -2260,7 +2273,7 @@ int
 Util::delete_backuplog(string db_name)
 {
     if(db_name == "system"){
-        cout << "system can not be deleted!" << endl;
+        SLOG_ERROR("system can not be deleted!");
         return -1;
     }
     pthread_rwlock_wrlock(&backuplog_lock);
@@ -2297,7 +2310,7 @@ int
 Util::update_backuplog(string db_name, string parameter, string value)
 {
     if(parameter == "db_name"){
-        cout << "parameter can not be db_name!" << endl;
+       SLOG_ERROR("parameter can not be db_name!");
         return -1;
     }
     pthread_rwlock_wrlock(&backuplog_lock);
@@ -2326,7 +2339,7 @@ Util::update_backuplog(string db_name, string parameter, string value)
         }
         else{
             fputs(readBuffer, fp1);
-            cout << "wrong parameter!" << endl;
+            SLOG_ERROR("wrong parameter!");
             ret = 1;
         }
     }
@@ -2363,7 +2376,7 @@ Util::query_backuplog(string db_name, string parameter)
 
         }
         else{
-            cout << "wrong parameter!" << endl;
+            SLOG_ERROR("wrong parameter!");
         }
     }
     fclose(fp);
@@ -2402,7 +2415,7 @@ Util::has_record_backuplog(string db_name)
         Document d;
         d.ParseStream(is);
         if (d["db_name"].GetString() == db_name){
-            cout << rec << endl;
+            SLOG_DEBUG(rec);
             pthread_rwlock_unlock(&backuplog_lock);
             return true;
         }
@@ -2439,306 +2452,6 @@ Util::stamp2time(int timestamp)
     strftime(s, sizeof(s), "%Y-%m-%d %H:%M:%S", &tm);
 
     return s;
-}
-
-
-void
-Util::init_transactionlog()
-{
-    pthread_rwlock_wrlock(&transactionlog_lock);
-    if (boost::filesystem::exists(TRANSACTION_LOG_PATH)) {
-        cout << "transaction log has been created." << endl;
-        pthread_rwlock_unlock(&transactionlog_lock);
-        return;
-    }
-    FILE* fp = fopen(TRANSACTION_LOG_PATH, "w");
-    fclose(fp);
-    pthread_rwlock_unlock(&transactionlog_lock);
-}
-
-int
-Util::add_transactionlog(std::string db_name, std::string user, std::string TID, std::string begin_time, std::string state , std::string end_time)
-{
-    cout << "this is Util::add_transactionlog" << endl;
-    pthread_rwlock_wrlock(&transactionlog_lock);
-    FILE* fp = fopen(TRANSACTION_LOG_PATH, "a");
-    Document document;
-    document.SetObject();
-    Document::AllocatorType& allocator = document.GetAllocator();
-
-    document.AddMember("db_name", StringRef(db_name.c_str()), allocator);
-    document.AddMember("TID", StringRef(TID.c_str()), allocator);
-    document.AddMember("user", StringRef(user.c_str()), allocator);
-    document.AddMember("begin_time", StringRef(begin_time.c_str()), allocator);
-    document.AddMember("state", StringRef(state.c_str()), allocator);
-    document.AddMember("end_time", StringRef(end_time.c_str()), allocator);
-    StringBuffer buffer;
-    PrettyWriter<StringBuffer> writer(buffer);
-    document.Accept(writer);
-    string rec = buffer.GetString();
-    rec = Util::string_replace(rec, "\n", "");
-    rec = Util::string_replace(rec, "    ", "");
-    rec.push_back('\n');
-    fputs(rec.c_str(), fp);
-
-    fclose(fp);
-    pthread_rwlock_unlock(&transactionlog_lock);
-}
-
-int
-Util::update_transactionlog(std::string TID, std::string state, std::string end_time)
-{
-    pthread_rwlock_wrlock(&transactionlog_lock);
-    FILE* fp = fopen(TRANSACTION_LOG_PATH, "r");
-    FILE* fp1 = fopen(TRANSACTION_LOG_TEMP_PATH, "w");
-    char readBuffer[0xffff];
-    int ret = 0;
-    while (fgets(readBuffer, 1024, fp)) {
-        string rec = readBuffer;
-        StringStream is(readBuffer);
-        Document d;
-        d.ParseStream(is);
-        if (d["TID"].GetString() != TID) {
-            fputs(readBuffer, fp1);
-            continue;
-        }
-        if (d.HasMember("state") && d.HasMember("end_time")) {
-            Value& S = d["state"];
-            S.SetString(state.c_str(), state.length());
-            Value& SS = d["end_time"];
-            SS.SetString(end_time.c_str(), end_time.length());
-            StringBuffer buffer;
-            Writer<StringBuffer> writer(buffer);
-            d.Accept(writer);
-            string line = buffer.GetString();
-            line.push_back('\n');
-            fputs(line.c_str(), fp1);
-        }
-        else {
-            fputs(readBuffer, fp1);
-            cout << "Transaction log corrupted, please initilize it!" << endl;
-            ret = 1;
-        }
-    }
-    fclose(fp);
-    fclose(fp1);
-    string cmd = "rm ";
-    cmd += TRANSACTION_LOG_PATH;
-    system(cmd.c_str());
-    cmd = "mv ";
-    cmd += TRANSACTION_LOG_TEMP_PATH;
-    cmd += ' ';
-    cmd += TRANSACTION_LOG_PATH;
-    system(cmd.c_str());
-    pthread_rwlock_unlock(&transactionlog_lock);
-    return ret;
-}
-
-string 
-Util::get_transactionlog(int page_no, int page_size)
-{
-    int totalSize = 0;
-    int totalPage = 0;
-
-    pthread_rwlock_rdlock(&transactionlog_lock);
-    ifstream in;
-    in.open(TRANSACTION_LOG_PATH, ios::in);
-    string line;
-    int startLine;
-    int endLine;
-    if(page_no < 1)
-    {
-        page_no = 1;
-    }
-    if(page_size < 1)
-    {
-        page_size = 10;
-    }
-    startLine = (page_no - 1)*page_size + 1;
-    endLine = page_no*page_size + 1;
-    //count total
-    while (getline(in, line, '\n'))
-    {
-        totalSize++;
-    }
-    in.close();
-    Document all;
-    Document::AllocatorType &allocator = all.GetAllocator();
-    all.SetObject();
-    Value a(kObjectType);
-    Value darray(kArrayType);
-    if (totalSize > 0)
-    {
-        totalPage = (totalSize/page_size) + (totalSize%page_size == 0 ? 0 : 1);
-        if (page_no > totalPage)
-        {
-            pthread_rwlock_unlock(&transactionlog_lock);
-            throw runtime_error("page_no more then max_page_no " + to_string(totalPage));
-        }
-        startLine = totalSize - page_size*page_no + 1;
-        endLine = totalSize - page_size*(page_no - 1) + 1;
-        if (startLine < 1)
-        {
-            startLine = 1;
-        }
-        // seek to start line;
-        in.open(TRANSACTION_LOG_PATH, ios::in);
-        int i_temp;
-        char buf_temp[1024];
-        in.seekg(0, ios::beg);
-        for (i_temp = 1; i_temp < startLine; i_temp++)
-        {
-            in.getline(buf_temp, sizeof(buf_temp));
-        }
-        
-        string line;
-        Document d;
-        bool success = true;
-        while (startLine < endLine && getline(in, line, '\n')) {
-            StringStream is(line.c_str());
-            d.ParseStream(is);
-            Value rec(kObjectType);
-            if (d.HasMember("db_name"))
-            {
-                rec.AddMember("db_name", d["db_name"], allocator);
-            }
-            else
-            {
-                success = false;
-                darray.SetArray();
-                break;
-            }
-            if (d.HasMember("TID"))
-            {
-                rec.AddMember("TID", d["TID"], allocator);
-            }
-            else
-            {
-                success = false;
-                darray.SetArray();
-                break;
-            }
-            if (d.HasMember("user"))
-            {
-                rec.AddMember("user", d["user"], allocator);
-            }
-            else
-            {
-                success = false;
-                darray.SetArray();
-                break;
-            }
-            if (d.HasMember("begin_time"))
-            {
-                rec.AddMember("begin_time", d["begin_time"], allocator);
-            }
-            else
-            {
-                success = false;
-                darray.SetArray();
-                break;
-            }
-            if (d.HasMember("state"))
-            {
-                rec.AddMember("state", d["state"], allocator);
-            }
-            else
-            {
-                success = false;
-                darray.SetArray();
-                break;
-            }
-            if (d.HasMember("end_time"))
-            {
-                rec.AddMember("end_time", d["end_time"], allocator);
-            }
-            else
-            {
-                success = false;
-                darray.SetArray();
-                break;
-            }
-            darray.PushBack(rec, allocator);
-            startLine++;
-        }
-        in.close();
-        if (success)
-        {
-            all.AddMember("StatusCode", 0, allocator);
-            all.AddMember("StatusMsg", "Get Transaction log success", allocator);
-            all.AddMember("list", darray, allocator);
-            all.AddMember("totalSize", totalSize, allocator);
-            all.AddMember("totalPage", totalPage, allocator);
-            all.AddMember("pageNo", page_no, allocator);
-            all.AddMember("pageSize", page_size, allocator);
-        }
-        else
-        {
-            all.AddMember("StatusCode", 1005, allocator);
-            all.AddMember("message", "error! Transaction log corrupted", allocator);
-        }
-    }
-    else
-    {
-        darray.SetArray();
-        all.AddMember("StatusCode", 0, allocator);
-        all.AddMember("StatusMsg", "Get Transaction log success", allocator);
-        all.AddMember("list", darray, allocator);
-        all.AddMember("totalSize", totalSize, allocator);
-        all.AddMember("totalPage", totalPage, allocator);
-        all.AddMember("pageNo", page_no, allocator);
-        all.AddMember("pageSize", page_size, allocator);
-    }
-    StringBuffer buffer;
-    Writer<StringBuffer> writer(buffer);
-    all.Accept(writer);
-    string all_rec = buffer.GetString();
-    pthread_rwlock_unlock(&transactionlog_lock);
-    return all_rec;
-}
-
-void
-Util::abort_transactionlog(long end_time)
-{
-    pthread_rwlock_wrlock(&transactionlog_lock);
-    FILE* fp = fopen(TRANSACTION_LOG_PATH, "r");
-    FILE* fp1 = fopen(TRANSACTION_LOG_TEMP_PATH, "w");
-    char readBuffer[0xffff];
-    int ret = 0;
-    while (fgets(readBuffer, 1024, fp)) {
-        string rec = readBuffer;
-        StringStream is(readBuffer);
-        Document d;
-        d.ParseStream(is);
-        if (d.HasMember("state") && d["state"].GetString() == string("RUNNING")) {
-            Value& S = d["state"];
-            string state = "ROLLBACK";
-            S.SetString(state.c_str(), state.length());
-            Value& SS = d["end_time"];
-            string end_time_s = to_string(end_time);
-            SS.SetString(end_time_s.c_str(), end_time_s.length());
-            StringBuffer buffer;
-            Writer<StringBuffer> writer(buffer);
-            d.Accept(writer);
-            string line = buffer.GetString();
-            line.push_back('\n');
-            fputs(line.c_str(), fp1);
-        }
-        else {
-            fputs(readBuffer, fp1);
-        }
-    }
-    fclose(fp);
-    fclose(fp1);
-    string cmd = "rm ";
-    cmd += TRANSACTION_LOG_PATH;
-    system(cmd.c_str());
-    cmd = "mv ";
-    cmd += TRANSACTION_LOG_TEMP_PATH;
-    cmd += ' ';
-    cmd += TRANSACTION_LOG_PATH;
-    system(cmd.c_str());
-    pthread_rwlock_unlock(&transactionlog_lock);
 }
 
 
@@ -2795,207 +2508,151 @@ Util::GetFiles(const char *src_dir, const char *ext)
 */
 std::string Util::getArgValue(int argc, char* argv[], std::string argname,std::string argname2, std::string default_value)
 {
-    
-	for (int i = 0; i < argc; i++)
-	{
-		if ((argv[i] == "-" + argname)||(argv[i]=="--"+argname2))
-		{
-			if (i + 1 >= argc)
-			{
-				return "";
-			}
-			else
-			{
-				return argv[i + 1];
-			}
 
-		}
+  for (int i = 0; i < argc; i++)
+  {
+    if ((argv[i] == "-" + argname)||(argv[i]=="--"+argname2))
+    {
+      if (i + 1 >= argc)
+      {
+        return "";
+      }
+      else
+      {
+        return argv[i + 1];
+      }
 
-	}
-	//cout << argname << " is not exist,using the default value:" << default_value << endl;
-	return default_value;
+    }
+
+  }
+  //cout << argname << " is not exist,using the default value:" << default_value << endl;
+  return default_value;
 }
 
-void Util::formatPrint(std::string content, std::string type)
+pair<bool, double> Util::checkGetNumericLiteral(string &literal)
 {
-    string time = Util::getTimeString();
-    cout << "[" << type << "][" << time << "]:" << content << endl;
+  if (literal.size() <= 2)
+    return make_pair(false, 0);
+  if (literal[0] != '"')
+    return make_pair(false, 0);
+
+  auto right_quotation_pos =  literal.rfind('"');
+
+  if (right_quotation_pos == 1 || right_quotation_pos == string::npos)
+    return make_pair(false, 0);
+
+  const char* last_s = literal.c_str() + right_quotation_pos;
+  const char* start = literal.c_str() + 1;
+  char* end_ptr;
+  double v = std::strtod(start, &end_ptr);
+  bool success = end_ptr == last_s;
+  return make_pair(success,v);
 }
 
-pair<bool, double> Util::checkGetNumericLiteral(string literal)
-{
-    if (literal[0] != '"')
-        return make_pair(false, 0);
-    if (literal.rfind('"') == string::npos)
-        return make_pair(false, 0);
-    size_t sepPos = literal.find('^');
-    if (sepPos == string::npos || literal[sepPos + 1] != '^' \
-        || literal[sepPos + 2] != '<' || literal[literal.size() - 1] != '>')
-        return make_pair(false, 0);
-    string valuePart = literal.substr(1, literal.rfind('"') - 1);
-    string suffix = literal.substr(sepPos + 2);
-    if (suffix == "<http://www.w3.org/2001/XMLSchema#integer>")
-    {
-        long long ll;
-        try
-        {
-            ll = stoll(valuePart);
-        }
-        catch (invalid_argument& e)
-        {
-            cout << "Integer value invalid" << endl;
-            return make_pair(false, 0);
-        }
-        catch (out_of_range& e)
-        {
-            cout << "Integer out of range" << endl;
-            return make_pair(false, 0);
-        }
-        return make_pair(true, ll);
-    }
-    else if (suffix == "<http://www.w3.org/2001/XMLSchema#decimal>")
-    {
-        double d = stod(valuePart);
-        return make_pair(true, d);
-    }
-    else if (suffix == "<http://www.w3.org/2001/XMLSchema#double>")
-    {
-        double d;
-        try
-        {
-            d = stod(valuePart);
-        }
-        catch (invalid_argument& e)
-        {
-            cout << "Double value invalid" << endl;
-            return make_pair(false, 0);
-        }
-        if (valuePart.length() == 3 && toupper(valuePart[0]) == 'N' && toupper(valuePart[1]) == 'A'
-            && toupper(valuePart[2]) == 'N')
-        {
-            cout << "Double value is NaN" << endl;
-            return make_pair(false, 0);
-        }
-        return make_pair(true, d);
-    }
-    else if (suffix == "<http://www.w3.org/2001/XMLSchema#long>")
-    {
-        long long ll;
-        try
-        {
-            ll = stoll(valuePart);
-        }
-        catch (invalid_argument& e)
-        {
-            cout << "Long value invalid" << endl;
-            return make_pair(false, 0);
-        }
-        catch (out_of_range& e)
-        {
-            cout << "Long value out of range" << endl;
-            return make_pair(false, 0);
-        }
-        return make_pair(true, ll);
-    }
-    else if (suffix == "<http://www.w3.org/2001/XMLSchema#int>")
-    {
-        long long ll;
-        try
-        {
-            ll = stoll(valuePart);
-        }
-        catch (invalid_argument& e)
-        {
-            cout << "Int value invalid" << endl;
-            return make_pair(false, 0);
-        }
-        catch (out_of_range& e)
-        {
-            cout << "Int value out of range" << endl;
-            return make_pair(false, 0);
-        }
-        if (ll < (long long)INT_MIN || ll >(long long)INT_MAX)
-        {
-            cout << "Int value out of range" << endl;
-            return make_pair(false, 0);
-        }
-        return make_pair(true, ll);
-    }
-    else if (suffix == "<http://www.w3.org/2001/XMLSchema#short>")
-    {
-        long long ll;
-        try
-        {
-            ll = stoll(valuePart);
-        }
-        catch (invalid_argument& e)
-        {
-            cout << "Short value invalid" << endl;
-            return make_pair(false, 0);
-        }
-        catch (out_of_range& e)
-        {
-            cout << "Short value out of range" << endl;
-            return make_pair(false, 0);
-        }
-        if (ll < (long long)SHRT_MIN || ll >(long long)SHRT_MAX)
-        {
-            cout << "Short value out of range" << endl;
-            return make_pair(false, 0);
-        }
-        return make_pair(true, ll);
-    }
-    else if (suffix == "<http://www.w3.org/2001/XMLSchema#byte>")
-    {
-        long long ll;
-        try
-        {
-            ll = stoll(valuePart);
-        }
-        catch (invalid_argument& e)
-        {
-            cout << "Byte value invalid" << endl;
-            return make_pair(false, 0);
-        }
-        catch (out_of_range& e)
-        {
-            cout << "Byte value out of range" << endl;
-            return make_pair(false, 0);
-        }
-        if (ll < (long long)SCHAR_MIN || ll >(long long)SCHAR_MAX)
-        {
-            cout << "Byte value out of range" << endl;
-            return make_pair(false, 0);
-        }
-        return make_pair(true, ll);
-    }
-    else if (suffix == "<http://www.w3.org/2001/XMLSchema#float>")
-    {
-        float f;
-        try
-        {
-            f = stof(valuePart);
-        }
-        catch (invalid_argument& e)
-        {
-            cout << "Float value invalid" << endl;
-            return make_pair(false, 0);
-        }
-        if (valuePart.length() == 3 && toupper(valuePart[0]) == 'N' && toupper(valuePart[1]) == 'A'
-            && toupper(valuePart[2]) == 'N')
-        {
-            cout << "Float value is NaN" << endl;
-            return make_pair(false, 0);
-        }
-        return make_pair(true, f);
-    }
-    else
-        return make_pair(false, 0);
-}
-
-// md5
 std::string Util::md5(const string& text)
 {
     MD5 _md5(text);
     return _md5.md5();
+}
+
+bool Util::iscontain(const string& _parent,const string& _child)
+{
+ string::size_type idx = _parent.find(_child);
+ if(idx != string::npos )
+ {
+   return true;
+ }
+ else
+ {
+   return false;
+ }
+}
+
+// void Util::formatPrint(std::string content, std::string type)
+// {
+//     string time = Util::get_date_time();
+//     cout << "[" << type << "][" << time << "] " << content << endl;
+// }
+
+std::string Util::urlEncode(const std::string& str)
+{
+    std::string strTemp = "";
+    size_t length = str.length();
+    unsigned char x;
+    for (size_t i = 0; i < length; i++)
+    {
+        if (isalnum((unsigned char)str[i]) ||
+            (str[i] == '-') ||
+            (str[i] == '_') ||
+            (str[i] == '.') ||
+            (str[i] == '~'))
+            strTemp += str[i];
+        else if (str[i] == ' ')
+            strTemp += "+";
+        else
+        {
+            strTemp += '%';
+            x = (unsigned char)str[i] >> 4;
+            strTemp += x > 9 ? x + 55 : x + 48;
+            x = (unsigned char)str[i] % 16;
+            strTemp += x > 9 ? x + 55 : x + 48;
+        }
+    }
+    return strTemp;
+}
+
+std::string Util::urlDecode(const std::string& str)
+{
+    std::string strTemp = "";
+    size_t length = str.length();
+    unsigned char x;
+    for (size_t i = 0; i < length; i++)
+    {
+        if (str[i] == '+')
+            strTemp += ' ';
+        else if (str[i] == '%')
+        {
+            assert(i + 2 < length);
+            x = (unsigned char)str[++i];
+            unsigned char high;
+            if (x >= 'A' && x <= 'Z')
+                high = x - 'A' + 10;
+            else if (x >= 'a' && x <= 'z')
+                high = x - 'a' + 10;
+            else if (x >= '0' && x <= '9')
+                high = x - '0';
+            else
+                assert(0);
+
+            x = (unsigned char)str[++i];
+            unsigned char low;
+            if (x >= 'A' && x <= 'Z')
+                low = x - 'A' + 10;
+            else if (x >= 'a' && x <= 'z')
+                low = x - 'a' + 10;
+            else if (x >= '0' && x <= '9')
+                low = x - '0';
+
+            strTemp += high * 16 + low;
+        }
+        else
+            strTemp += str[i];
+    }
+    return strTemp;
+}
+
+std::string Util::get_cur_path()
+{
+    char *buffer;
+    if((buffer = getcwd(NULL, 0)) == NULL) 
+    {
+        SLOG_ERROR("get cur path error");
+        return "";
+    }
+    else
+    {
+        string cur_path = string(buffer);
+        SLOG_DEBUG("cur_path: " + cur_path);
+        return cur_path;
+    }
 }

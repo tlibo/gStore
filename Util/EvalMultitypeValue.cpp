@@ -186,33 +186,34 @@ bool EvalMultitypeValue::isSimpleLiteral()
 	return false;
 }
 
+void EvalMultitypeValue::convert2Type(EvalMultitypeValue::DataType to_type)
+{
+	if (this->datatype == xsd_integer && to_type == xsd_decimal)
+		this->flt_value = this->int_value;
+	else if (this->datatype == xsd_integer && to_type == xsd_float)
+		this->flt_value = this->int_value;
+	else if (this->datatype == xsd_integer && to_type == xsd_long)
+		this->long_value = this->int_value;
+	else if (this->datatype == xsd_integer && to_type == xsd_double)
+		this->dbl_value = this->int_value;
+	else if (this->datatype == xsd_decimal && to_type == xsd_double)
+		this->dbl_value = this->flt_value;
+	else if (this->datatype == xsd_decimal && to_type == xsd_long)
+		this->long_value = this->flt_value;
+	else if (this->datatype == xsd_long && to_type == xsd_double)
+		this->dbl_value = this->long_value;
+	else if (this->datatype == xsd_float && to_type == xsd_double)
+		this->dbl_value = this->flt_value;
+	else
+		return;
+	this->datatype = to_type;
+}
+
 void EvalMultitypeValue::getSameNumericType (EvalMultitypeValue &x)
 {
 	DataType to_type = max(this->datatype, x.datatype);
-
-	if (this->datatype == xsd_integer && to_type == xsd_decimal)
-		this->flt_value = this->int_value;
-	if (this->datatype == xsd_integer && to_type == xsd_float)
-		this->flt_value = this->int_value;
-	if (this->datatype == xsd_integer && to_type == xsd_double)
-		this->dbl_value = this->int_value;
-	if (this->datatype == xsd_decimal && to_type == xsd_double)
-		this->dbl_value = this->flt_value;
-	if (this->datatype == xsd_float && to_type == xsd_double)
-		this->dbl_value = this->flt_value;
-	this->datatype = to_type;
-
-	if (x.datatype == xsd_integer && to_type == xsd_decimal)
-		x.flt_value = x.int_value;
-	if (x.datatype == xsd_integer && to_type == xsd_float)
-		x.flt_value = x.int_value;
-	if (x.datatype == xsd_integer && to_type == xsd_double)
-		x.dbl_value = x.int_value;
-	if (x.datatype == xsd_decimal && to_type == xsd_double)
-		x.dbl_value = x.flt_value;
-	if (x.datatype == xsd_float && to_type == xsd_double)
-		x.dbl_value = x.flt_value;
-	x.datatype = to_type;
+	this->convert2Type(to_type);
+	x.convert2Type(to_type);
 }
 
 EvalMultitypeValue
@@ -297,11 +298,13 @@ EvalMultitypeValue
 
 		if (this->datatype == xsd_integer && x.datatype == xsd_integer)
 			ret_femv.bool_value = (this->int_value == x.int_value);
-		if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
+		else if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
 			ret_femv.bool_value = (this->flt_value == x.flt_value);
-		if (this->datatype == xsd_float && x.datatype == xsd_float)
+		else if (this->datatype == xsd_float && x.datatype == xsd_float)
 			ret_femv.bool_value = (this->flt_value == x.flt_value);
-		if (this->datatype == xsd_double && x.datatype == xsd_double)
+		else if (this->datatype == xsd_long && x.datatype == xsd_long)
+			ret_femv.bool_value = (this->long_value == x.long_value);
+		else if (this->datatype == xsd_double && x.datatype == xsd_double)
 			ret_femv.bool_value = (this->dbl_value == x.dbl_value);
 
 		ret_femv.deduceTermValue();
@@ -374,11 +377,13 @@ EvalMultitypeValue
 
 		if (this->datatype == xsd_integer && x.datatype == xsd_integer)
 			ret_femv.bool_value = (this->int_value != x.int_value);
-		if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
+		else if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
 			ret_femv.bool_value = (this->flt_value != x.flt_value);
-		if (this->datatype == xsd_float && x.datatype == xsd_float)
+		else if (this->datatype == xsd_float && x.datatype == xsd_float)
 			ret_femv.bool_value = (this->flt_value != x.flt_value);
-		if (this->datatype == xsd_double && x.datatype == xsd_double)
+		else if (this->datatype == xsd_long && x.datatype == xsd_long)
+			ret_femv.bool_value = (this->long_value != x.long_value);
+		else if (this->datatype == xsd_double && x.datatype == xsd_double)
 			ret_femv.bool_value = (this->dbl_value != x.dbl_value);
 
 		ret_femv.deduceTermValue();
@@ -436,18 +441,22 @@ EvalMultitypeValue
 
 		if (this->datatype == xsd_integer && x.datatype == xsd_integer)
 			ret_femv.bool_value = (this->int_value < x.int_value);
-		if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
+		else if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
 			ret_femv.bool_value = (this->flt_value < x.flt_value);
-		if (this->datatype == xsd_float && x.datatype == xsd_float)
+		else if (this->datatype == xsd_float && x.datatype == xsd_float)
 			ret_femv.bool_value = (this->flt_value < x.flt_value);
-		if (this->datatype == xsd_double && x.datatype == xsd_double)
+		else if (this->datatype == xsd_long && x.datatype == xsd_long)
+			ret_femv.bool_value = (this->long_value < x.long_value);
+		else if (this->datatype == xsd_double && x.datatype == xsd_double)
 			ret_femv.bool_value = (this->dbl_value < x.dbl_value);
 
 		ret_femv.deduceTermValue();
 		return ret_femv;
 	}
 
-	if (this->isSimpleLiteral() && x.isSimpleLiteral())
+	// TODO: isSimpleLiteral seems not robust
+	// if (this->isSimpleLiteral() && x.isSimpleLiteral())
+	if (this->datatype == literal && x.datatype == literal)
 	{
 		ret_femv.bool_value = (this->str_value < x.str_value);
 
@@ -496,11 +505,13 @@ EvalMultitypeValue
 
 		if (this->datatype == xsd_integer && x.datatype == xsd_integer)
 			ret_femv.bool_value = (this->int_value <= x.int_value);
-		if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
+		else if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
 			ret_femv.bool_value = (this->flt_value <= x.flt_value);
-		if (this->datatype == xsd_float && x.datatype == xsd_float)
+		else if (this->datatype == xsd_float && x.datatype == xsd_float)
 			ret_femv.bool_value = (this->flt_value <= x.flt_value);
-		if (this->datatype == xsd_double && x.datatype == xsd_double)
+		else if (this->datatype == xsd_long && x.datatype == xsd_long)
+			ret_femv.bool_value = (this->long_value <= x.long_value);
+		else if (this->datatype == xsd_double && x.datatype == xsd_double)
 			ret_femv.bool_value = (this->dbl_value <= x.dbl_value);
 
 		ret_femv.deduceTermValue();
@@ -556,11 +567,13 @@ EvalMultitypeValue
 
 		if (this->datatype == xsd_integer && x.datatype == xsd_integer)
 			ret_femv.bool_value = (this->int_value > x.int_value);
-		if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
+		else if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
 			ret_femv.bool_value = (this->flt_value > x.flt_value);
-		if (this->datatype == xsd_float && x.datatype == xsd_float)
+		else if (this->datatype == xsd_float && x.datatype == xsd_float)
 			ret_femv.bool_value = (this->flt_value > x.flt_value);
-		if (this->datatype == xsd_double && x.datatype == xsd_double)
+		else if (this->datatype == xsd_long && x.datatype == xsd_long)
+			ret_femv.bool_value = (this->long_value > x.long_value);
+		else if (this->datatype == xsd_double && x.datatype == xsd_double)
 			ret_femv.bool_value = (this->dbl_value > x.dbl_value);
 
 		ret_femv.deduceTermValue();
@@ -616,11 +629,13 @@ EvalMultitypeValue
 
 		if (this->datatype == xsd_integer && x.datatype == xsd_integer)
 			ret_femv.bool_value = (this->int_value >= x.int_value);
-		if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
+		else if (this->datatype == xsd_decimal && x.datatype == xsd_decimal)
 			ret_femv.bool_value = (this->flt_value >= x.flt_value);
-		if (this->datatype == xsd_float && x.datatype == xsd_float)
+		else if (this->datatype == xsd_float && x.datatype == xsd_float)
 			ret_femv.bool_value = (this->flt_value >= x.flt_value);
-		if (this->datatype == xsd_double && x.datatype == xsd_double)
+		else if (this->datatype == xsd_long && x.datatype == xsd_long)
+			ret_femv.bool_value = (this->long_value >= x.long_value);
+		else if (this->datatype == xsd_double && x.datatype == xsd_double)
 			ret_femv.bool_value = (this->dbl_value >= x.dbl_value);
 
 		ret_femv.deduceTermValue();
@@ -682,6 +697,11 @@ EvalMultitypeValue
 		ret_femv.datatype = xsd_float;
 		ret_femv.flt_value = flt_value + x.flt_value;
 	}
+	else if (datatype == xsd_long)
+	{
+		ret_femv.datatype = xsd_long;
+		ret_femv.flt_value = long_value + x.long_value;
+	}
 	else if (datatype == xsd_double)
 	{
 		ret_femv.datatype = xsd_double;
@@ -716,6 +736,11 @@ EvalMultitypeValue
 	{
 		ret_femv.datatype = xsd_float;
 		ret_femv.flt_value = -flt_value;
+	}
+	else if (datatype == xsd_long)
+	{
+		ret_femv.datatype = xsd_long;
+		ret_femv.long_value = -long_value;
 	}
 	else if (datatype == xsd_double)
 	{
@@ -754,6 +779,11 @@ EvalMultitypeValue
 		ret_femv.datatype = xsd_float;
 		ret_femv.flt_value = flt_value - x.flt_value;
 	}
+	else if (datatype == xsd_long)
+	{
+		ret_femv.datatype = xsd_long;
+		ret_femv.long_value = long_value - x.long_value;
+	}
 	else if (datatype == xsd_double)
 	{
 		ret_femv.datatype = xsd_double;
@@ -790,6 +820,11 @@ EvalMultitypeValue
 	{
 		ret_femv.datatype = xsd_float;
 		ret_femv.flt_value = flt_value * x.flt_value;
+	}
+	else if (datatype == xsd_long)
+	{
+		ret_femv.datatype = xsd_long;
+		ret_femv.long_value = long_value * x.long_value;
 	}
 	else if (datatype == xsd_double)
 	{
@@ -828,6 +863,11 @@ EvalMultitypeValue
 		ret_femv.datatype = xsd_float;
 		ret_femv.flt_value = flt_value / x.flt_value;
 	}
+	else if (datatype == xsd_long)
+	{
+		ret_femv.datatype = xsd_long;
+		ret_femv.long_value = long_value / x.long_value;
+	}
 	else if (datatype == xsd_double)
 	{
 		ret_femv.datatype = xsd_double;
@@ -842,6 +882,8 @@ void EvalMultitypeValue::deduceTermValue()
 {
 	if (datatype == xsd_integer)
 		term_value = "\"" + to_string(int_value) + "\"^^<http://www.w3.org/2001/XMLSchema#integer>";
+	else if (datatype == xsd_long)
+		term_value = "\"" + to_string(long_value) + "\"^^<http://www.w3.org/2001/XMLSchema#long>";
 	else if (datatype == xsd_decimal)
 		term_value = "\"" + to_string(flt_value) + "\"^^<http://www.w3.org/2001/XMLSchema#decimal>";
 	else if (datatype == xsd_float)
@@ -887,7 +929,7 @@ void EvalMultitypeValue::deduceTypeValue()
 		str_value = term_value;
 	}
 
-	if (term_value[0] == '"' && term_value.find("\"^^<") == string::npos \
+	else if (term_value[0] == '"' && term_value.find("\"^^<") == string::npos \
 		&& term_value[term_value.length() - 1] != '>')
 	{
 		datatype = EvalMultitypeValue::literal;
@@ -901,14 +943,14 @@ void EvalMultitypeValue::deduceTypeValue()
 			str_value = str_value.substr(0, i + 1);
 	}
 
-	if (term_value[0] == '"' && \
+	else if (term_value[0] == '"' && \
 		term_value.find("^^<http://www.w3.org/2001/XMLSchema#string>") != string::npos)
 	{
 		datatype = EvalMultitypeValue::xsd_string;
 		str_value = term_value.substr(0, term_value.find("^^<http://www.w3.org/2001/XMLSchema#string>"));
 	}
 
-	if (term_value[0] == '"' && \
+	else if (term_value[0] == '"' && \
 		term_value.find("^^<http://www.w3.org/2001/XMLSchema#boolean>") != string::npos)
 	{
 		datatype = EvalMultitypeValue::xsd_boolean;
@@ -922,7 +964,7 @@ void EvalMultitypeValue::deduceTypeValue()
 			bool_value = EvalMultitypeValue::EffectiveBooleanValue::error_value;
 	}
 
-	if (term_value[0] == '"' && \
+	else if (term_value[0] == '"' && \
 		term_value.find("^^<http://www.w3.org/2001/XMLSchema#integer>") != string::npos)
 	{
 		datatype = EvalMultitypeValue::xsd_integer;
@@ -933,7 +975,18 @@ void EvalMultitypeValue::deduceTypeValue()
 		ss >> int_value;
 	}
 
-	if (term_value[0] == '"' && \
+	else if (term_value[0] == '"' && \
+		term_value.find("^^<http://www.w3.org/2001/XMLSchema#long>") != string::npos)
+	{
+		datatype = EvalMultitypeValue::xsd_long;
+
+		string value = term_value.substr(1, term_value.find("^^<http://www.w3.org/2001/XMLSchema#long>") - 2);
+		stringstream ss;
+		ss << value;
+		ss >> long_value;
+	}
+
+	else if (term_value[0] == '"' && \
 		term_value.find("^^<http://www.w3.org/2001/XMLSchema#decimal>") != string::npos)
 	{
 		datatype = EvalMultitypeValue::xsd_decimal;
@@ -944,7 +997,7 @@ void EvalMultitypeValue::deduceTypeValue()
 		ss >> flt_value;
 	}
 
-	if (term_value[0] == '"' && \
+	else if (term_value[0] == '"' && \
 		term_value.find("^^<http://www.w3.org/2001/XMLSchema#float>") != string::npos)
 	{
 		datatype = EvalMultitypeValue::xsd_float;
@@ -955,7 +1008,7 @@ void EvalMultitypeValue::deduceTypeValue()
 		ss >> flt_value;
 	}
 
-	if (term_value[0] == '"' && \
+	else if (term_value[0] == '"' && \
 		term_value.find("^^<http://www.w3.org/2001/XMLSchema#double>") != string::npos)
 	{
 		datatype = EvalMultitypeValue::xsd_double;
@@ -966,7 +1019,7 @@ void EvalMultitypeValue::deduceTypeValue()
 		ss >> dbl_value;
 	}
 
-	if (term_value[0] == '"' && \
+	else if (term_value[0] == '"' && \
 		(term_value.find("^^<http://www.w3.org/2001/XMLSchema#dateTime>") != string::npos || \
 		term_value.find("^^<http://www.w3.org/2001/XMLSchema#date>") != string::npos))
 	{
@@ -1051,4 +1104,38 @@ string EvalMultitypeValue::getStrContent()
 	}
 
 	return "";
+}
+
+string EvalMultitypeValue::getRep()
+{
+	string ret;
+	if (datatype == EvalMultitypeValue::rdf_term || datatype == EvalMultitypeValue::iri)
+		ret = term_value;
+	else if (datatype == EvalMultitypeValue::xsd_string || datatype == EvalMultitypeValue::literal)
+		ret = str_value;
+	else if (datatype == EvalMultitypeValue::xsd_boolean)
+	{
+		if (bool_value.getValue() == 0 || bool_value.getValue() == 2)
+			ret = "\"false\"^^<http://www.w3.org/2001/XMLSchema#boolean>";
+		else
+			ret = "\"true\"^^<http://www.w3.org/2001/XMLSchema#boolean>";
+	}
+	else if (datatype == EvalMultitypeValue::xsd_integer)
+		ret = "\"" + to_string(int_value) + "\"^^<http://www.w3.org/2001/XMLSchema#integer>";
+	else if (datatype == EvalMultitypeValue::xsd_long)
+		ret = "\"" + to_string(int_value) + "\"^^<http://www.w3.org/2001/XMLSchema#long>";
+	else if (datatype == EvalMultitypeValue::xsd_decimal)
+		ret = "\"" + to_string(flt_value) + "\"^^<http://www.w3.org/2001/XMLSchema#decimal>";
+	else if (datatype == EvalMultitypeValue::xsd_float)
+		ret = "\"" + to_string(flt_value) + "\"^^<http://www.w3.org/2001/XMLSchema#float>";
+	else if (datatype == EvalMultitypeValue::xsd_double)
+		ret = "\"" + to_string(dbl_value) + + "\"^^<http://www.w3.org/2001/XMLSchema#double>";
+	else if (datatype == EvalMultitypeValue::xsd_datetime)
+	{
+		ret = "\"" + to_string(dt_value.date[0]) + "-" + to_string(dt_value.date[1]) + "-" + \
+			to_string(dt_value.date[2]) + "T" + to_string(dt_value.date[3]) + ":" + \
+			to_string(dt_value.date[4]) + ":" + to_string(dt_value.date[5]) + \
+			"\"^^<http://www.w3.org/2001/XMLSchema#dateTime>";
+	}
+	return ret;
 }

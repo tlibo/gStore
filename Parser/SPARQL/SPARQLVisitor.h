@@ -239,6 +239,8 @@ public:
 
     virtual antlrcpp::Any visitVarOrIri(SPARQLParser::VarOrIriContext *context) = 0;
 
+    virtual antlrcpp::Any visitVarOrIriSet(SPARQLParser::VarOrIriSetContext *context) = 0;
+
     virtual antlrcpp::Any visitVar(SPARQLParser::VarContext *context) = 0;
 
     virtual antlrcpp::Any visitGraphTerm(SPARQLParser::GraphTermContext *context) = 0;

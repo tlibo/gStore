@@ -26,7 +26,7 @@ ResultSet::ResultSet()
 
 ResultSet::~ResultSet()
 {
-	cout<<"call the delete function for ResultSet"<<endl;
+	//cout<<"call the delete function for ResultSet"<<endl;
 	delete[] this->var_name;
 	if (!this->useStream)
 	{
@@ -95,6 +95,17 @@ ResultSet::setVar(const vector<string> & _var_names)
 	{
 		this->var_name[i] = _var_names[i];
 	}
+}
+
+void
+ResultSet::setUsername(const std::string& _username)
+{
+	this->username = _username;
+}
+string
+ResultSet::getUsername()
+{
+	return this->username;
 }
 
 //convert to TSV string
@@ -357,7 +368,38 @@ ResultSet::output(FILE* _fp)
 	}
 	else
 	{
-		fprintf(_fp, "%s", this->to_str().c_str());
+		long long ans_num = max((long long)this->ansNum - this->output_offset, 0LL);
+		if (this->output_limit != -1)
+			ans_num = min(ans_num, (long long)this->output_limit);
+		if(ans_num == 0)
+		{
+			fprintf(_fp, "[empty result]\n");
+			return;
+		}
+
+		fprintf(_fp, "%s", this->var_name[0].c_str());
+		for(int i = 1; i < this->true_select_var_num; i++)
+		{
+			fprintf(_fp, "\t%s", this->var_name[i].c_str());
+		}
+		fprintf(_fp, "\n");
+		
+		for(long long i = (!this->useStream ? this->output_offset : 0LL); i < this->ansNum; i++)
+		{
+			if (this->output_limit != -1 && i == this->output_offset + this->output_limit)
+				break;
+
+			if (i >= this->output_offset)
+			{
+				fprintf(_fp, "%s", Util::node2string(this->answer[i][0].c_str()).c_str());
+				for(int j = 1; j < this->true_select_var_num; j++)
+				{
+					fprintf(_fp, "\t%s", Util::node2string(this->answer[i][j].c_str()).c_str());
+				}
+				// fprintf(_fp, ".\n");
+				fprintf(_fp, "\n");
+			}
+		}
 	}
 }
 

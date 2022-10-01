@@ -33,6 +33,11 @@ class QueryTree
 				Varset group_pattern_resultset_minimal_varset, group_pattern_resultset_maximal_varset;
 				Varset group_pattern_subject_object_maximal_varset, group_pattern_predicate_maximal_varset;
 
+				GroupPattern() { }
+				GroupPattern(const GroupPattern& that);
+				GroupPattern& operator=(const GroupPattern& that);
+				~GroupPattern() { }
+
 				void addOnePattern(Pattern _pattern);
 
 				void addOneGroup();
@@ -79,12 +84,36 @@ class QueryTree
 						Element(const std::string &_value):value(_value){}
 				};
 				Element subject, predicate, object;
+				bool kleene;	// Denote if the predicate is a Kleene closure
 				Varset varset, subject_object_varset;
 				int blockid;
 
-				Pattern():blockid(-1){}
-				Pattern(const Element _subject, const Element _predicate, const Element _object):
-					subject(_subject), predicate(_predicate), object(_object), blockid(-1){}
+				Pattern():kleene(false), blockid(-1){}
+				Pattern(const Element _subject, const Element _predicate, const Element _object, bool _kleene=false):
+					subject(_subject), predicate(_predicate), object(_object), kleene(_kleene), blockid(-1){}
+				Pattern(const Pattern& _pattern)
+				{
+					subject.value = _pattern.subject.value;
+					predicate.value = _pattern.predicate.value;
+					object.value = _pattern.object.value;
+					varset = _pattern.varset;
+					subject_object_varset = _pattern.subject_object_varset;
+					blockid = _pattern.blockid;
+					kleene = _pattern.kleene;
+				}
+
+				Pattern& operator = (const Pattern &_pattern)
+				{
+					subject.value = _pattern.subject.value;
+					predicate.value = _pattern.predicate.value;
+					object.value = _pattern.object.value;
+					varset = _pattern.varset;
+					subject_object_varset = _pattern.subject_object_varset;
+					blockid = _pattern.blockid;
+					kleene = _pattern.kleene;
+					
+					return *this;
+				}
 
 				bool operator < (const Pattern &x) const
 				{
@@ -94,13 +123,24 @@ class QueryTree
 						return this->predicate.value < x.predicate.value;
 					return (this->object.value < x.object.value);
 				}
+
+				bool operator == (const Pattern &x) const
+				{
+					if (this->subject.value == x.subject.value \
+						&& this->predicate.value == x.predicate.value \
+						&& this->object.value == x.object.value && this->kleene == x.kleene)
+						return true;
+					return false;
+				}
 		};
 
 		class PathArgs
 		{
 		public:
-			std::string src, dst;
+			std::string src, dst, fun_name;
 			bool directed;
+			std::vector<std::string> iri_set;
+			std::vector<std::string> vert_set;
 			std::vector<std::string> pred_set;
 			int k;
 			float confidence;
@@ -125,6 +165,26 @@ class QueryTree
 			// ~CompTreeNode();
 			void print(int dep);	// Print subtree rooted at this node
 			Varset getVarset();
+			CompTreeNode(const CompTreeNode& that)
+			{
+				oprt = that.oprt;
+				children = that.children;
+				val = that.val;
+				path_args = that.path_args;
+				varset = that.varset;
+				done = that.done;
+			}
+			CompTreeNode& operator = (const CompTreeNode& that)
+			{
+				oprt = that.oprt;
+				children = that.children;
+				val = that.val;
+				path_args = that.path_args;
+				varset = that.varset;
+				done = that.done;
+
+				return *this;
+			}
 		};
 
 		class GroupPattern::FilterTree
@@ -185,8 +245,10 @@ class QueryTree
 		{
 			public:
 				Bind(){}
-				Bind(const std::string &_str, const std::string &_var):str(_str), var(_var){}
-				std::string str, var;
+				Bind(const std::string &_var):var(_var){}
+				// std::string str, var;
+				CompTreeNode bindExpr;
+				std::string var;
 				Varset varset;
 		};
 
@@ -210,22 +272,39 @@ class QueryTree
 				SubGroupPattern(const SubGroupPattern& _sgp):type(_sgp.type)
 				{
 					pattern = _sgp.pattern;
+					group_pattern = _sgp.group_pattern;
 					unions = _sgp.unions;
 					optional = _sgp.optional;
 					filter = _sgp.filter;
 					bind = _sgp.bind;
+				}
+				SubGroupPattern& operator =(const SubGroupPattern& _sgp)
+				{
+					type = _sgp.type;
+					pattern = _sgp.pattern;
+					group_pattern = _sgp.group_pattern;
+					unions = _sgp.unions;
+					optional = _sgp.optional;
+					filter = _sgp.filter;
+					bind = _sgp.bind;
+
+					return *this;
 				}
 		};
 
 		class ProjectionVar
 		{
 			public:
-				enum AggregateType {None_type, Count_type, Sum_type, Min_type, Max_type, Avg_type, 
+				enum AggregateType {None_type, Count_type, Sum_type, Min_type, Max_type, Avg_type, Groupconcat_type,
 					simpleCyclePath_type, simpleCycleBoolean_type, cyclePath_type, cycleBoolean_type, 
 					shortestPath_type, shortestPathLen_type, kHopReachable_type, kHopEnumerate_type, 
-					kHopReachablePath_type, ppr_type,
-					CompTree_type, Contains_type, Custom_type};
+					kHopReachablePath_type, ppr_type, triangleCounting_type, closenessCentrality_type,
+					bfsCount_type,
+					CompTree_type, Contains_type, Custom_type,
+					PFN_type};
 				AggregateType aggregate_type;
+
+				std::string separator;	// For GROUP_CONCAT
 
 				std::string var, aggregate_var;
 				bool distinct;
@@ -268,6 +347,8 @@ class QueryTree
 
 			GroupPattern group_pattern;
 
+			bool singleBGP;
+
 			//----------------------------------------------------------------------------------------------------------------------------------------------------
 
 			UpdateType update_type;
@@ -277,7 +358,9 @@ class QueryTree
 
 		public:
 			QueryTree():
-				query_form(Select_Query), projection_modifier(Modifier_None), projection_asterisk(false), offset(0), limit(-1), update_type(Not_Update){}
+				query_form(Select_Query), projection_modifier(Modifier_None), \
+				projection_asterisk(false), offset(0), limit(-1), update_type(Not_Update), \
+				singleBGP(false) {}
 
 			void setQueryForm(QueryForm _queryform);
 			QueryForm getQueryForm();
@@ -320,6 +403,9 @@ class QueryTree
 			bool checkSelectAggregateFunctionGroupByValid();
 
 			void print();
+
+			void setSingleBGP(bool val);
+			bool getSingleBGP();
 };
 
 #endif // _QUERY_QUERYTREE_H

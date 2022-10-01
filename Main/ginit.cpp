@@ -53,24 +53,17 @@ int main(int argc, char * argv[])
 			Util::init_backuplog();
 			cout<<"init backuplog successfully!"<<endl;
 			Util::configure_new();
-			
 			string version = Util::getConfigureValue("version");
-
 			string update_sparql = "insert data {<CoreVersion> <value> \"" + version + "\". }";
-			//cout<<"version:"<<version<<",update_sparql:"<<update_sparql<<endl;
+			cout<<"version:"<<version<<",update_sparql:"<<update_sparql<<endl;
 			ResultSet _rs;
 			FILE* ofp = stdout;
 			string msg;
 			_db = new Database(_db_path);
 			_db->load();
-	
 			int ret = _db->query(update_sparql, _rs, ofp);
-
 			if (ret >= 0)
-			{
 				msg = "update num : " + Util::int2string(ret);
-				_db->save();
-			}
 			else //update error
 				msg = "update failed.";
 			if (ret != -100)
